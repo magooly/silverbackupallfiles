@@ -22,6 +22,8 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
+import androidx.appcompat.widget.SwitchCompat;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
@@ -63,10 +65,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private static final String TYPE_SILVER = "Silver";
     private static final String TYPE_GOLD = "Gold";
     private static final String API_ERROR_LOG_FILE = "api_errors.txt";
+    private static final String PREF_DARK_MODE = "pref_dark_mode";
 
     private Context mContext;
     private EditText et_slv_slv_price_amount, et_slv_gld_amount;
     private TextView tv_hld_slv_price_amount, tv_hld_gld_amount, tv_hld_ttl_amount, tvDate, tvPriceHeading, tvAppVersion;
+    private SwitchCompat darkModeSwitch;
     private Button btn_holding_update, btn_silver_update;
     private String slv_gld_price, slv_slv_price, slv_cpr_price, time, date;
 
@@ -92,11 +96,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        preferences = getSharedPreferences(getString(R.string.app_name), MODE_PRIVATE);
+        boolean darkMode = preferences.getBoolean(PREF_DARK_MODE, false);
+        AppCompatDelegate.setDefaultNightMode(darkMode ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         date = new SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(new Date());
 
-        preferences = getSharedPreferences(getString(R.string.app_name), MODE_PRIVATE);
         editor = preferences.edit();
         editor.clear();
         editor.apply();
@@ -244,9 +251,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         btn_silver_update = findViewById(R.id.btn_silver_update);
         tvDate = findViewById(R.id.tvDate);
         tvAppVersion = findViewById(R.id.tv_app_version);
+        darkModeSwitch = findViewById(R.id.dark_mode_switch);
 
         if (tvAppVersion != null) {
             tvAppVersion.setText("Version " + BuildConfig.VERSION_NAME);
+        }
+
+        if (darkModeSwitch != null) {
+            darkModeSwitch.setChecked(preferences.getBoolean(PREF_DARK_MODE, false));
+            darkModeSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                preferences.edit().putBoolean(PREF_DARK_MODE, isChecked).apply();
+                AppCompatDelegate.setDefaultNightMode(isChecked ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
+                recreate();
+            });
         }
 
         btn_holding_update.setOnClickListener(this);

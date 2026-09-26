@@ -1,13 +1,13 @@
 <resources>
     <!-- Base application theme. -->
-    <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
+    <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
         <!-- Customize your theme here. -->
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
     </style>
 
-    <style name="MyDialogTheme" parent="Theme.AppCompat.Light.Dialog.Alert">
+    <style name="MyDialogTheme" parent="Theme.AppCompat.DayNight.Dialog.Alert">
         <item name="colorControlNormal">@android:color/white</item>
         <item name="colorControlActivated">@color/colorPrimary</item>
         <item name="textColorAlertDialogListItem">@android:color/white</item>
@@ -26,6 +26,6 @@
     <style name="AppTheme.AppBarOverlay" parent="ThemeOverlay.AppCompat.Dark.ActionBar" />
     
     <!-- Popup overlay style -->
-    <style name="AppTheme.PopupOverlay" parent="ThemeOverlay.AppCompat.Light" />
+    <style name="AppTheme.PopupOverlay" parent="ThemeOverlay.AppCompat.DayNight" />
 
 </resources>
