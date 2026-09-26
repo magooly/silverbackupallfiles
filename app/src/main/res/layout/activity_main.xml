@@ -1,0 +1,634 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/light_green"
+    tools:context=".MainActivity">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:theme="@style/AppTheme.AppBarOverlay">
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="?attr/colorPrimary"
+            app:popupTheme="@style/AppTheme.PopupOverlay">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@mipmap/ic_launcher"
+                    android:contentDescription="@string/app_name"
+                    android:layout_marginEnd="8dp"/>
+
+                <TextView
+                    android:id="@+id/toolbar_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Metals &amp; Crypto Holdings"
+                    android:textAppearance="@style/TextAppearance.App.Toolbar.Title" />
+
+            </LinearLayout>
+
+        </androidx.appcompat.widget.Toolbar>
+
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:orientation="vertical">
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="5dp"
+            android:elevation="5dp"
+            app:cardCornerRadius="5dp"
+            app:cardElevation="5dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_margin="5dp"
+                android:orientation="vertical"
+                android:padding="5dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:orientation="horizontal"
+                        android:layout_height="wrap_content">
+                    <TextView
+                        android:id="@+id/tv_price_heading"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:text="@string/today_price"
+                        android:textColor="@color/black"
+                        android:textSize="18sp" />
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="wrap_content"
+                            android:text="@string/date"
+                            android:layout_gravity="center"
+                            android:id="@+id/tvDate"
+                            android:textColor="@color/black"
+                            android:textSize="16sp" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="0.5dp"
+                        android:layout_marginTop="5dp"
+                        android:background="@color/colorPrimary" />
+
+
+                    <LinearLayout
+                        android:id="@+id/row_price_silver"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/marginplus1"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="53dp"
+                            android:layout_marginHorizontal="@dimen/marginplus1"
+                            android:layout_weight="2"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:text="@string/silver"
+                            android:textColor="@color/textview_text_color"
+                            android:textSize="@dimen/font_14" />
+
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1.5"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center"
+                                android:layout_marginLeft="@dimen/marginplus1"
+                                android:text="@string/doller" />
+
+                            <EditText
+                                android:id="@+id/et_slv_slv_price_amount"
+                                android:layout_width="0dp"
+                                android:layout_height="53dp"
+                                android:layout_weight="1.5"
+                                android:layout_gravity="center"
+                                android:layout_marginLeft="4dp"
+                                android:layout_marginRight="4dp"
+                                android:background="@drawable/edittext_bg"
+                                android:digits="0123456789.,"
+                                android:enabled="false"
+                                android:gravity="right|center_vertical"
+                                android:inputType="number"
+                                android:minWidth="160dp"
+                                android:minEms="8"
+                                android:paddingStart="12dp"
+                                android:paddingEnd="12dp"
+                                android:textColor="@color/textview_text_color"
+                                android:textSize="16sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center"
+                                android:layout_marginLeft="@dimen/marginplus1"
+                                android:text="AUD" />
+
+                        </LinearLayout>
+
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/row_price_gold"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/marginplus1"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_marginHorizontal="@dimen/marginplus1"
+                            android:layout_weight="2"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:text="@string/gold"
+                            android:textColor="@color/textview_text_color"
+                            android:textSize="@dimen/font_14" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1.5"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center"
+                                android:layout_marginLeft="@dimen/marginplus1"
+                                android:text="$" />
+
+                            <EditText
+                                android:id="@+id/et_slv_gld_amount"
+                                android:layout_width="0dp"
+                                android:layout_height="@dimen/marginplus6"
+                                android:layout_alignParentRight="true"
+                                android:layout_centerHorizontal="true"
+                                android:layout_marginLeft="4dp"
+                                android:layout_marginRight="4dp"
+                                android:layout_weight="1.5"
+                                android:layout_gravity="center"
+                                android:background="@drawable/edittext_bg"
+                                android:gravity="right|center_vertical"
+                                android:inputType="numberDecimal"
+                                android:enabled="false"
+                                android:digits="0123456789.,"
+                                android:paddingStart="12dp"
+                                android:paddingEnd="12dp"
+                                android:minWidth="160dp"
+                                android:minEms="8"
+                                android:textColor="@color/textview_text_color"
+                                android:textSize="16sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:text="AUD"
+                                android:layout_gravity="center"
+                                android:layout_marginLeft="@dimen/marginplus1"
+                                android:layout_height="wrap_content" />
+
+
+                        </LinearLayout>
+
+
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="0.5dp"
+                        android:layout_marginTop="5dp"
+                        android:background="@color/colorPrimary" />
+
+                </LinearLayout>
+
+
+            </LinearLayout>
+
+        </androidx.cardview.widget.CardView>
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="5dp"
+            android:elevation="5dp"
+            app:cardCornerRadius="5dp"
+            app:cardElevation="5dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_margin="5dp"
+                android:orientation="vertical"
+                android:padding="5dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/holding"
+                        android:textColor="@color/black"
+                        android:textSize="18sp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="0.5dp"
+                        android:layout_marginTop="5dp"
+                        android:background="@color/colorPrimary" />
+
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/marginplus1"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_marginHorizontal="@dimen/marginplus1"
+                            android:layout_weight="2"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:text="@string/silver"
+                            android:textColor="@color/textview_text_color"
+                            android:textSize="@dimen/font_14" />
+
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1.5"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center"
+                                android:layout_marginLeft="@dimen/marginplus1"
+                                android:text="$" />
+
+                            <TextView
+                                android:id="@+id/tv_hld_slv_price_amount"
+                                android:layout_width="0dp"
+                                android:layout_height="@dimen/marginplus6"
+                                android:layout_alignParentRight="true"
+                                android:layout_centerHorizontal="true"
+                                android:layout_marginLeft="2dp"
+                                android:layout_weight="1.5"
+                                android:layout_gravity="center"
+                                android:background="@drawable/edittext_bg"
+                                android:gravity="right|center"
+                                android:padding="5dp"
+                                android:minWidth="160dp"
+                                android:textColor="@color/textview_text_color"
+                                android:textSize="16sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:text="AUD"
+                                android:layout_gravity="center"
+                                android:layout_marginLeft="@dimen/marginplus1"
+                                android:layout_height="wrap_content" />
+
+
+                        </LinearLayout>
+
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/marginplus1"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_marginHorizontal="@dimen/marginplus1"
+                            android:layout_weight="2"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:text="@string/gold"
+                            android:textColor="@color/textview_text_color"
+                            android:textSize="@dimen/font_14" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1.5"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center"
+                                android:layout_marginLeft="@dimen/marginplus1"
+                                android:text="$" />
+
+                            <TextView
+                                android:id="@+id/tv_hld_gld_amount"
+                                android:layout_width="0dp"
+                                android:layout_height="@dimen/marginplus6"
+                                android:layout_alignParentRight="true"
+                                android:layout_centerHorizontal="true"
+                                android:layout_marginLeft="2dp"
+                                android:layout_weight="1.5"
+                                android:layout_gravity="center"
+                                android:background="@drawable/edittext_bg"
+                                android:gravity="right|center"
+                                android:padding="5dp"
+                                android:minWidth="160dp"
+                                android:textColor="@color/textview_text_color"
+                                android:textSize="16sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:text="AUD"
+                                android:layout_gravity="center"
+                                android:layout_marginLeft="@dimen/marginplus1"
+                                android:layout_height="wrap_content" />
+
+
+                        </LinearLayout>
+
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/marginplus1"
+                        android:visibility="gone"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_marginHorizontal="@dimen/marginplus1"
+                            android:layout_weight="2"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:text="@string/copper"
+                            android:textColor="@color/textview_text_color"
+                            android:textSize="@dimen/font_14" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1.5"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center"
+                                android:layout_marginLeft="@dimen/marginplus1"
+                                android:text="$" />
+
+                            <TextView
+                                android:id="@+id/tv_hld_cpr_amount"
+                                android:layout_width="0dp"
+                                android:layout_height="@dimen/marginplus6"
+                                android:layout_alignParentRight="true"
+                                android:layout_centerHorizontal="true"
+                                android:layout_marginLeft="2dp"
+                                android:layout_weight="1"
+                                android:layout_gravity="center"
+                                android:background="@drawable/edittext_bg"
+                                android:gravity="right|center"
+                                android:padding="5dp"
+                                android:textColor="@color/textview_text_color"
+                                android:textSize="16sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:text="AUD"
+                                android:layout_gravity="center"
+                                android:layout_marginLeft="@dimen/marginplus1"
+                                android:layout_height="wrap_content" />
+
+
+                        </LinearLayout>
+
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/ll_dynamic_holdings"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/marginplus1"
+                        android:orientation="vertical" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="0.5dp"
+                        android:layout_marginTop="5dp"
+                        android:background="@color/colorPrimary" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/marginplus1"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_marginHorizontal="@dimen/marginplus1"
+                            android:layout_weight="2"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:text="@string/total"
+                            android:textColor="@color/textview_text_color"
+                            android:textSize="@dimen/font_14" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1.5"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center"
+                                android:layout_marginLeft="@dimen/marginplus1"
+                                android:text="$" />
+
+                            <TextView
+                                android:id="@+id/tv_hld_ttl_amount"
+                                android:layout_width="0dp"
+                                android:layout_height="@dimen/marginplus6"
+                                android:layout_marginLeft="2dp"
+                                android:layout_weight="1.5"
+                                android:layout_gravity="center"
+                                android:background="@drawable/edittext_bg"
+                                android:gravity="right|center"
+                                android:padding="5dp"
+                                android:minWidth="160dp"
+                                android:textColor="@color/textview_text_color"
+                                android:textSize="16sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:text="AUD"
+                                android:layout_gravity="center"
+                                android:layout_marginLeft="@dimen/marginplus1"
+                                android:layout_height="wrap_content" />
+
+
+                        </LinearLayout>
+
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="0.5dp"
+                    android:layout_marginTop="5dp"
+                    />
+
+            </LinearLayout>
+
+        </androidx.cardview.widget.CardView>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="12dp"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingHorizontal="@dimen/marginplus1">
+
+            <Button
+                android:id="@+id/btn_silver_update"
+                android:layout_width="160dp"
+                android:layout_height="wrap_content"
+                android:background="@drawable/rounded_button_border"
+                android:minHeight="45dp"
+                android:paddingVertical="8dp"
+                android:paddingHorizontal="@dimen/marginplus2"
+                android:layout_marginHorizontal="@dimen/marginplus1"
+                android:text="@string/updateprice"
+                android:textAllCaps="false"
+                android:textColor="@color/colorPrimary" />
+
+            <Button
+                android:id="@+id/btn_holding_update"
+                android:layout_width="160dp"
+                android:layout_height="wrap_content"
+                android:background="@drawable/rounded_button_border"
+                android:minHeight="45dp"
+                android:paddingVertical="8dp"
+                android:paddingHorizontal="@dimen/marginplus2"
+                android:layout_marginHorizontal="@dimen/marginplus1"
+                android:text="@string/update_holding"
+                android:textAllCaps="false"
+                android:textColor="@color/colorPrimary" />
+
+        </LinearLayout>
+
+
+
+        <!-- Spacer to push content to bottom half -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+            
+        <!-- Developer and attribution text -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:gravity="center"
+            android:text="App developed by Wally Horsman\nSpot quotes from https://www.exchangerate-api.com/\nSpot prices quoted are one day behind"
+            android:textAlignment="center"
+            android:textColor="#444444"
+            android:textSize="14sp"
+            android:lineSpacingExtra="6dp"
+            android:layout_gravity="center"/>
+
+        <TextView
+            android:id="@+id/tv_app_version"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="16dp"
+            android:gravity="center"
+            android:text="Version 1.3"
+            android:textAlignment="center"
+            android:textColor="#666666"
+            android:textSize="12sp"
+            android:layout_gravity="center"/>
+            
+        <!-- Spacer to balance the layout -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+    </LinearLayout>
+    </ScrollView>
+</LinearLayout>

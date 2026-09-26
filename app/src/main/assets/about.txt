@@ -1,0 +1,10 @@
+Silver Holding App
+Version 2.0 17/12/2025
+
+This application helps you manage your silver and gold holdings.
+
+Features:
+- Track silver items with weight and details
+- Track gold items with weight and details
+- Calculate total values
+- Export data

@@ -1,0 +1,15 @@
+{
+    "java.jdt.ls.java.home": "C:\\Users\\wrhor\\.jdk\\jdk-17.0.16",
+    "java.configuration.runtimes": [
+        {
+            "name": "JavaSE-17",
+            "path": "C:\\Users\\wrhor\\.jdk\\jdk-17.0.16",
+            "default": true
+        }
+    ],
+    "java.import.gradle.java.home": "C:\\Users\\wrhor\\.jdk\\jdk-17.0.16",
+    "terminal.integrated.env.windows": {
+        "JAVA_HOME": "C:\\Users\\wrhor\\.jdk\\jdk-17.0.16",
+        "Path": "${env:Path};C:\\Users\\wrhor\\.jdk\\jdk-17.0.16\\bin"
+    }
+}

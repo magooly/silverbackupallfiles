@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <color name="colorPrimary">#039BE5</color>
+    <color name="colorPrimaryDark">#4285F4</color>
+    <color name="colorAccent">#039BE5</color>
+
+    <color name="black">#000000</color>
+    <color name="white">#ffffff</color>
+
+    <color name="black_font1">#212121</color>
+    <color name="black_font2">#424242</color>
+    <color name="black_font3">#616161</color>
+    <color name="black_font4">#757575</color>
+    <color name="black_font5">#9E9E9E</color>
+    <color name="black_font6">#BDBDBD</color>
+    <color name="black_font7">#E0E0E0</color>
+    <color name="black_font8">#EEEEEE</color>
+    <color name="black_font9">#F5F5F5</color>
+    <color name="black_font10">#FAFAFA</color>
+    <color name="light_green">#E8F5E9</color>
+
+
+    //blue color
+    <color name="blue_font1">#0D47A1</color>
+    <color name="blue_font2">#1565C0</color>
+    <color name="blue_font3">#1976D2</color>
+    <color name="blue_font4">#1E88E5</color>
+    <color name="blue_font5">#2196F3</color>
+    <color name="blue_font6">#42A5F5</color>
+    <color name="blue_font7">#64B5F6</color>
+    <color name="blue_font8">#90CAF9</color>
+    <color name="blue_font9">#BBDEFB</color>
+    <color name="blue_font10">#E3F2FD</color>
+
+    //light blue color
+    <color name="light_blue_font1">#01579B</color>
+    <color name="light_blue_font2">#0277BD</color>
+    <color name="light_blue_font3">#0288D1</color>
+    <color name="light_blue_font4">#039BE5</color>
+    <color name="light_blue_font5">#03A9F4</color>
+    <color name="light_blue_font6">#29B6F6</color>
+    <color name="light_blue_font7">#4FC3F7</color>
+    <color name="light_blue_font8">#81D4FA</color>
+    <color name="light_blue_font9">#B3E5FC</color>
+    <color name="light_blue_font10">#E1F5FE</color>
+
+    //red color
+    <color name="red_font1">#B71C1C</color>
+    <color name="red_font2">#C62828</color>
+    <color name="red_font3">#D32F2F</color>
+    <color name="red_font4">#E53935</color>
+    <color name="red_font5">#F44336</color>
+    <color name="red_font6">#EF5350</color>
+    <color name="red_font7">#E57373</color>
+    <color name="red_font8">#EF9A9A</color>
+    <color name="red_font9">#FFCDD2</color>
+    <color name="red_font10">#FFEBEE</color>
+
+    //green font
+    <color name="green_font1">#1B5E20</color>
+    <color name="green_font2">#2E7D32</color>
+    <color name="green_font3">#388E3C</color>
+    <color name="green_font4">#43A047</color>
+    <color name="green_font5">#4CAF50</color>
+    <color name="green_font6">#66BB6A</color>
+    <color name="green_font7">#81C784</color>
+    <color name="green_font8">#A5D6A7</color>
+    <color name="green_font9">#C8E6C9</color>
+    <color name="green__font10">#E8F5E9</color>
+
+
+    //indigo font
+    <color name="indigo_font1">#1A237E</color>
+    <color name="indigo_font2">#283593</color>
+    <color name="indigo_font3">#303F9F</color>
+    <color name="indigo_font4">#3949AB</color>
+    <color name="indigo_font5">#3F51B5</color>
+    <color name="indigo_font6">#5C6BC0</color>
+    <color name="indigo_font7">#7986CB</color>
+    <color name="indigo_font8">#9FA8DA</color>
+    <color name="indigo_font9">#C5CAE9</color>
+    <color name="indigo__font10">#E8EAF6</color>
+
+    //yellow font
+    <color name="yellow_font1">#F57F17</color>
+    <color name="yellow_font2">#F9A825</color>
+    <color name="yellow_font3">#FBC02D</color>
+    <color name="yellow_font4">#FDD835</color>
+    <color name="yellow_font5">#FFEB3B</color>
+    <color name="yellow_font6">#FFEE58</color>
+    <color name="yellow_font7">#FFF176</color>
+    <color name="yellow_font8">#FFF59D</color>
+    <color name="yellow_font9">#FFF9C4</color>
+    <color name="yellow__font10">#FFFDE7</color>
+
+
+    <color name="info_one">#FF5722</color>
+    <color name="info_two">#FF9800</color>
+    <color name="info_three">#4CAF50</color>
+    <color name="info_four">#009688</color>
+    <color name="info_five">#03A9F4</color>
+    <color name="info_six">#3F51B5</color>
+    <color name="info_seven">#673AB7</color>
+    <color name="info_eight">#9C27B0</color>
+    <color name="info_nine">#E91E63</color>
+    <color name="info_ten">#607D8B</color>
+    <color name="info_eleven">#795548</color>
+    <color name="info_twelve">#FFEB3B</color>
+    <color name="info_thirteen">#D72632</color>
+    <color name="cancelled">#FF033D</color>
+    <color name="drawer_icon_color">#FFF4A44F</color>
+    <color name="colorAccentNew">#73934b</color>
+    <color name="dash_Line">#e6e6e6</color>
+    <color name="title_text_color">#bd3f57</color>
+    <color name="desc_text" >#6f6f6e</color>
+    <color name="textview_text_color">#282828</color>
+    <color name="edittext_text_color">#282828</color>
+    <color name="button_text_color">#282828</color>
+    <color name="edittext_stroke">#e6e6e6</color>
+
+</resources>
