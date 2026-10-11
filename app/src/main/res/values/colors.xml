@@ -5,7 +5,6 @@
     <color name="colorPrimaryDark">#4285F4</color>
     <color name="colorAccent">#039BE5</color>
 
-    <color name="black">#000000</color>
     <color name="white">#ffffff</color>
 
     <color name="black_font1">#212121</color>
@@ -19,7 +18,11 @@
     <color name="black_font9">#F5F5F5</color>
     <color name="black_font10">#FAFAFA</color>
     <color name="light_green">#E8F5E9</color>
-
+    <color name="dark_background">#121212</color>
+    <color name="dark_surface">#1E1E1E</color>
+    <color name="dark_text_primary">#F5F5F5</color>
+    <color name="dark_text_secondary">#BDBDBD</color>
+    <color name="dark_border">#2A2A2A</color>
 
     //blue color
     <color name="blue_font1">#0D47A1</color>
@@ -118,5 +121,7 @@
     <color name="edittext_text_color">#282828</color>
     <color name="button_text_color">#282828</color>
     <color name="edittext_stroke">#e6e6e6</color>
+    <color name="edittext_bg_fill">#FFFFFF</color>
+    <color name="dialog_text_primary">#000000</color>
 
 </resources>

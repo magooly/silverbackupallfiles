@@ -23,7 +23,6 @@ public class GoldTListAdapter extends RecyclerView.Adapter<GoldTListAdapter.MyHo
     ResListActivity resListActivity;
     List<SilverT_DBModel> alGoldList;
     View view;
-    String id = "", no = "", weight = "", what = "", total = "";
 
     public GoldTListAdapter(Context mContext, List<SilverT_DBModel> alGoldList, ResListActivity resListActivity) {
         this.mContext = mContext;
@@ -39,90 +38,70 @@ public class GoldTListAdapter extends RecyclerView.Adapter<GoldTListAdapter.MyHo
     }
 
     @Override
-    public void onBindViewHolder(@NonNull MyHolder holder, final int position)
+    public void onBindViewHolder(@NonNull MyHolder holder, int position)
     {
-
-        id = alGoldList.get(position).getX_ID();
-        no = alGoldList.get(position).getX_S_NO();
-        weight = alGoldList.get(position).getX_S_WEIGHT();
-        what = alGoldList.get(position).getX_S_WHAT();
-        total = alGoldList.get(position).getX_S_TOTAL();
+        final SilverT_DBModel item = alGoldList.get(position);
+        String no = item.getX_S_NO();
+        String weight = item.getX_S_WEIGHT();
+        String what = item.getX_S_WHAT();
+        String total = item.getX_S_TOTAL();
 
         holder.tv_no.setText(no);
         holder.tv_weight.setText(weight);
         holder.tv_what.setText(what);
         holder.tv_total.setText(total);
 
-        holder.ll_main.setOnClickListener(new View.OnClickListener()
-        {
+        holder.ll_main.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View view)
-            {
-                id = alGoldList.get(position).getX_ID();
-                no = alGoldList.get(position).getX_S_NO();
-                weight = alGoldList.get(position).getX_S_WEIGHT();
-                what = alGoldList.get(position).getX_S_WHAT();
-                total = alGoldList.get(position).getX_S_TOTAL();
-                resListActivity.displayPopUp("G",id,no,weight,what,total);
+            public void onClick(View view) {
+                openEditor(holder);
             }
         });
 
-        holder.tv_total.setOnClickListener(new View.OnClickListener()
-        {
+        holder.tv_total.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View view)
-            {
-                id = alGoldList.get(position).getX_ID();
-                no = alGoldList.get(position).getX_S_NO();
-                weight = alGoldList.get(position).getX_S_WEIGHT();
-                what = alGoldList.get(position).getX_S_WHAT();
-                total = alGoldList.get(position).getX_S_TOTAL();
-                resListActivity.displayPopUp("G",id,no,weight,what,total);
+            public void onClick(View view) {
+                openEditor(holder);
             }
         });
 
-        holder.tv_no.setOnClickListener(new View.OnClickListener()
-        {
+        holder.tv_no.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View view)
-            {
-                id = alGoldList.get(position).getX_ID();
-                no = alGoldList.get(position).getX_S_NO();
-                weight = alGoldList.get(position).getX_S_WEIGHT();
-                what = alGoldList.get(position).getX_S_WHAT();
-                total = alGoldList.get(position).getX_S_TOTAL();
-                resListActivity.displayPopUp("G",id,no,weight,what,total);
+            public void onClick(View view) {
+                openEditor(holder);
             }
         });
 
-        holder.tv_weight.setOnClickListener(new View.OnClickListener()
-        {
+        holder.tv_weight.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View view)
-            {
-                id = alGoldList.get(position).getX_ID();
-                no = alGoldList.get(position).getX_S_NO();
-                weight = alGoldList.get(position).getX_S_WEIGHT();
-                what = alGoldList.get(position).getX_S_WHAT();
-                total = alGoldList.get(position).getX_S_TOTAL();
-                resListActivity.displayPopUp("G",id,no,weight,what,total);
+            public void onClick(View view) {
+                openEditor(holder);
             }
         });
 
-        holder.tv_what.setOnClickListener(new View.OnClickListener()
-        {
+        holder.tv_what.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View view)
-            {
-                id = alGoldList.get(position).getX_ID();
-                no = alGoldList.get(position).getX_S_NO();
-                weight = alGoldList.get(position).getX_S_WEIGHT();
-                what = alGoldList.get(position).getX_S_WHAT();
-                total = alGoldList.get(position).getX_S_TOTAL();
-                resListActivity.displayPopUp("G",id,no,weight,what,total);
+            public void onClick(View view) {
+                openEditor(holder);
             }
         });
 
+    }
+
+    private void openEditor(@NonNull MyHolder holder) {
+        int adapterPosition = holder.getBindingAdapterPosition();
+        if (adapterPosition == RecyclerView.NO_POSITION) {
+            return;
+        }
+        SilverT_DBModel selected = alGoldList.get(adapterPosition);
+        resListActivity.displayPopUp(
+                "G",
+                selected.getX_ID(),
+                selected.getX_S_NO(),
+                selected.getX_S_WEIGHT(),
+                selected.getX_S_WHAT(),
+                selected.getX_S_TOTAL()
+        );
     }
 
     @Override

@@ -9,21 +9,55 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localProperties.load(new FileInputStream(localPropertiesFile))
+}
+
 def releaseStoreFile = keystoreProperties.getProperty("storeFile") ?: System.getenv("RELEASE_STORE_FILE")
 def releaseStorePassword = keystoreProperties.getProperty("storePassword") ?: System.getenv("RELEASE_STORE_PASSWORD")
 def releaseKeyAlias = keystoreProperties.getProperty("keyAlias") ?: System.getenv("RELEASE_KEY_ALIAS")
 def releaseKeyPassword = keystoreProperties.getProperty("keyPassword") ?: System.getenv("RELEASE_KEY_PASSWORD")
 def hasReleaseSigning = releaseStoreFile && releaseStorePassword && releaseKeyAlias && releaseKeyPassword
+def twelveDataApiKey = (localProperties.getProperty("TWELVE_DATA_API_KEY") ?: System.getenv("TWELVE_DATA_API_KEY") ?: "")
+    .replace("\\", "\\\\")
+    .replace('"', '\\"')
+def alphaVantageApiKey = (localProperties.getProperty("ALPHA_VANTAGE_API_KEY")
+    ?: System.getenv("ALPHA_VANTAGE_API_KEY")
+    ?: localProperties.getProperty("TWELVE_DATA_API_KEY")
+    ?: System.getenv("TWELVE_DATA_API_KEY")
+    ?: "")
+    .replace("\\", "\\\\")
+    .replace('"', '\\"')
+def eodhdApiKey = (localProperties.getProperty("EODHD_API_KEY")
+    ?: System.getenv("EODHD_API_KEY")
+    ?: localProperties.getProperty("ALPHA_VANTAGE_API_KEY")
+    ?: System.getenv("ALPHA_VANTAGE_API_KEY")
+    ?: "")
+    .replace("\\", "\\\\")
+    .replace('"', '\\"')
+def metalChartsApiKey = (localProperties.getProperty("METALCHARTS_API_KEY") ?: System.getenv("METALCHARTS_API_KEY") ?: "")
+    .replace("\\", "\\\\")
+    .replace('"', '\\"')
 
 android {
     compileSdkVersion 33
+    lint {
+        baseline = file("lint-baseline.xml")
+        abortOnError true
+    }
     defaultConfig {
         applicationId "com.projects.metalscrypto.holding.release2026"
         minSdkVersion 21
         targetSdkVersion 33
-        versionCode 5
-        versionName "1.4"
+        versionCode 1
+        versionName "1.0.0"
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+        buildConfigField "String", "TWELVE_DATA_API_KEY", "\"${twelveDataApiKey}\""
+        buildConfigField "String", "ALPHA_VANTAGE_API_KEY", "\"${alphaVantageApiKey}\""
+        buildConfigField "String", "EODHD_API_KEY", "\"${eodhdApiKey}\""
+        buildConfigField "String", "METALCHARTS_API_KEY", "\"${metalChartsApiKey}\""
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8

@@ -13,11 +13,16 @@ import com.projects.metalscrypto.holding.R;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class HoldingsDb extends SQLiteOpenHelper {
 
+    private static final String STOCK_SUFFIX_AX = ".AX";
+    private static final String STOCK_SUFFIX_ASX = ".ASX";
+    private static final String STOCK_SUFFIX_AU = ".AU";
+
     private static final String TAG = "HoldingsDb";
-    private static final int DATABASE_VERSION = 1;
+    private static final int DATABASE_VERSION = 3;
     private static final String DATABASE_NAME = "DBHOLDINGSDATA1.db";
     private static final String TABLE_NAME = "TABLEHOLDINGSDATA1";
 
@@ -27,6 +32,7 @@ public class HoldingsDb extends SQLiteOpenHelper {
     private static final String X_ITEM_WEIGHT = "item_weight";
     private static final String X_ITEM_WHAT = "item_what";
     private static final String X_ITEM_TOTAL = "item_total";
+    private static final String X_ITEM_WEIGHT_UNIT = "item_weight_unit";
     private static final String X_ITEM_DATE = "item_date";
     private static final String X_ITEM_TIME = "item_time";
     private static final String X_LEGACY_SOURCE = "legacy_source";
@@ -48,39 +54,96 @@ public class HoldingsDb extends SQLiteOpenHelper {
                 + X_ITEM_WEIGHT + " TEXT,"
                 + X_ITEM_WHAT + " TEXT,"
                 + X_ITEM_TOTAL + " TEXT,"
+                + X_ITEM_WEIGHT_UNIT + " TEXT,"
                 + X_ITEM_DATE + " TEXT,"
                 + X_ITEM_TIME + " TEXT,"
                 + X_LEGACY_SOURCE + " TEXT,"
                 + X_LEGACY_ID + " TEXT"
                 + ")";
         db.execSQL(CREATE_TABLE);
+        createIndexes(db);
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_NAME);
-        onCreate(db);
+        if (oldVersion < 2) {
+            ensureColumnExists(db, X_LEGACY_SOURCE, "TEXT");
+            ensureColumnExists(db, X_LEGACY_ID, "TEXT");
+            createIndexes(db);
+        }
+        if (oldVersion < 3) {
+            ensureColumnExists(db, X_ITEM_WEIGHT_UNIT, "TEXT");
+        }
     }
 
-    public boolean insertData(String itemType, String no, String weight, String what, String total, String date, String time) {
+    private void ensureColumnExists(SQLiteDatabase db, String columnName, String columnType) {
+        Cursor cursor = null;
+        try {
+            cursor = db.rawQuery("PRAGMA table_info(" + TABLE_NAME + ")", null);
+            while (cursor.moveToNext()) {
+                String existing = cursor.getString(cursor.getColumnIndexOrThrow("name"));
+                if (columnName.equalsIgnoreCase(existing)) {
+                    return;
+                }
+            }
+            db.execSQL("ALTER TABLE " + TABLE_NAME + " ADD COLUMN " + columnName + " " + columnType);
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+    }
+
+    private void createIndexes(SQLiteDatabase db) {
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_holdings_type ON " + TABLE_NAME + "(" + X_ITEM_TYPE + " COLLATE NOCASE)");
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS idx_holdings_legacy_unique ON " + TABLE_NAME
+                + "(" + X_LEGACY_SOURCE + "," + X_LEGACY_ID + ") WHERE "
+                + X_LEGACY_SOURCE + " IS NOT NULL AND TRIM(" + X_LEGACY_SOURCE + ")<>'' AND "
+                + X_LEGACY_ID + " IS NOT NULL AND TRIM(" + X_LEGACY_ID + ")<>''");
+    }
+
+    public int clearAllData() {
         SQLiteDatabase db = this.getWritableDatabase();
-        ContentValues values = buildValues(itemType, no, weight, what, total, date, time, null, null);
+        int deleted = db.delete(TABLE_NAME, null, null);
+        db.close();
+        return deleted;
+    }
+
+    public boolean insertData(String itemType, String no, String weight, String what, String total, String date,
+            String time) {
+        return insertData(itemType, no, weight, what, total, date, time, null);
+    }
+
+    public boolean insertData(String itemType, String no, String weight, String what, String total, String date,
+            String time, String weightUnit) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = buildValues(itemType, no, weight, what, total, date, time, weightUnit, null, null);
         long result = db.insert(TABLE_NAME, null, values);
         db.close();
         return result != -1;
     }
 
-    public boolean updateData(String id, String itemType, String no, String weight, String what, String total, String date, String time) {
+    public boolean updateData(String id, String itemType, String no, String weight, String what, String total,
+            String date, String time) {
+        return updateData(id, itemType, no, weight, what, total, date, time, null);
+    }
+
+    public boolean updateData(String id, String itemType, String no, String weight, String what, String total,
+            String date, String time, String weightUnit) {
         SQLiteDatabase db = this.getWritableDatabase();
-        ContentValues values = buildValues(itemType, no, weight, what, total, date, time, null, null);
-        int result = db.update(TABLE_NAME, values, X_ID + "=?", new String[]{id});
+        ContentValues values = buildValues(itemType, no, weight, what, total, date, time, weightUnit, null, null);
+        int result = db.update(TABLE_NAME, values, X_ID + "=?", new String[] { id });
         db.close();
         return result > 0;
     }
 
     public boolean deleteData(String id) {
+        String targetId = id == null ? "" : id.trim();
+        if (targetId.isEmpty()) {
+            return false;
+        }
         SQLiteDatabase db = this.getWritableDatabase();
-        int result = db.delete(TABLE_NAME, X_ID + "=?", new String[]{id});
+        int result = db.delete(TABLE_NAME, X_ID + "=?", new String[] { targetId });
         db.close();
         return result > 0;
     }
@@ -88,7 +151,7 @@ public class HoldingsDb extends SQLiteOpenHelper {
     public int deleteByType(String itemType) {
         SQLiteDatabase db = this.getWritableDatabase();
         int result = db.delete(TABLE_NAME, X_ITEM_TYPE + " COLLATE NOCASE = ?",
-                new String[]{normalizeItemType(itemType)});
+                new String[] { normalizeItemType(itemType) });
         db.close();
         return result;
     }
@@ -111,7 +174,7 @@ public class HoldingsDb extends SQLiteOpenHelper {
     public List<HoldingItem> getItemsByType(String itemType) {
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor cursor = db.query(TABLE_NAME, null, X_ITEM_TYPE + " COLLATE NOCASE = ?",
-                new String[]{itemType}, null, null, X_ID + " ASC");
+                new String[] { itemType }, null, null, X_ID + " ASC");
 
         List<HoldingItem> items = new ArrayList<>();
         while (cursor.moveToNext()) {
@@ -144,9 +207,9 @@ public class HoldingsDb extends SQLiteOpenHelper {
                         legacyItem.getX_S_TOTAL(),
                         legacyItem.getX_S_DATE(),
                         legacyItem.getX_S_TIME(),
+                        "oz",
                         legacySource,
-                        legacyItem.getX_ID()
-                );
+                        legacyItem.getX_ID());
                 long insertedRowId = db.insert(TABLE_NAME, null, values);
                 if (insertedRowId != -1) {
                     insertedCount++;
@@ -181,7 +244,7 @@ public class HoldingsDb extends SQLiteOpenHelper {
                 " AND TRIM(" + X_LEGACY_ID + ")<>''" +
                 " GROUP BY " + X_LEGACY_SOURCE + ", " + X_LEGACY_ID +
                 ")";
-        int legacyIdDeleted = db.delete(TABLE_NAME, whereDeleteByLegacyId, new String[]{legacySource, legacySource});
+        int legacyIdDeleted = db.delete(TABLE_NAME, whereDeleteByLegacyId, new String[] { legacySource, legacySource });
 
         // Fallback cleanup for rows where legacy id is missing.
         String whereDeleteByPayload = X_LEGACY_SOURCE + "=?" +
@@ -193,7 +256,7 @@ public class HoldingsDb extends SQLiteOpenHelper {
                 " GROUP BY " + X_ITEM_TYPE + ", " + X_ITEM_NO + ", " + X_ITEM_WEIGHT + ", " +
                 X_ITEM_WHAT + ", " + X_ITEM_TOTAL + ", " + X_ITEM_DATE + ", " + X_ITEM_TIME +
                 ")";
-        int payloadDeleted = db.delete(TABLE_NAME, whereDeleteByPayload, new String[]{legacySource, legacySource});
+        int payloadDeleted = db.delete(TABLE_NAME, whereDeleteByPayload, new String[] { legacySource, legacySource });
 
         return new CleanupStats(legacyIdDeleted, payloadDeleted);
     }
@@ -213,21 +276,20 @@ public class HoldingsDb extends SQLiteOpenHelper {
     }
 
     private boolean isLegacyItemAlreadyImported(SQLiteDatabase db, SilverT_DBModel legacyItem,
-                                                String itemType, String legacySource) {
+            String itemType, String legacySource) {
         String legacyId = legacyItem.getX_ID();
         Cursor cursor = null;
         try {
             if (legacySource != null && legacyId != null && !legacyId.trim().isEmpty()) {
                 cursor = db.query(
                         TABLE_NAME,
-                        new String[]{X_ID},
+                        new String[] { X_ID },
                         X_LEGACY_SOURCE + "=? AND " + X_LEGACY_ID + "=?",
-                        new String[]{legacySource, legacyId},
+                        new String[] { legacySource, legacyId },
                         null,
                         null,
                         null,
-                        "1"
-                );
+                        "1");
                 if (cursor.moveToFirst()) {
                     return true;
                 }
@@ -238,7 +300,7 @@ public class HoldingsDb extends SQLiteOpenHelper {
             // Fallback for older rows imported before legacy metadata existed.
             cursor = db.query(
                     TABLE_NAME,
-                    new String[]{X_ID},
+                    new String[] { X_ID },
                     X_ITEM_TYPE + "=? AND " +
                             X_ITEM_NO + "=? AND " +
                             X_ITEM_WEIGHT + "=? AND " +
@@ -246,7 +308,7 @@ public class HoldingsDb extends SQLiteOpenHelper {
                             X_ITEM_TOTAL + "=? AND " +
                             X_ITEM_DATE + "=? AND " +
                             X_ITEM_TIME + "=?",
-                    new String[]{
+                    new String[] {
                             normalizeItemType(itemType),
                             valueOrEmpty(legacyItem.getX_S_NO()),
                             valueOrEmpty(legacyItem.getX_S_WEIGHT()),
@@ -258,8 +320,7 @@ public class HoldingsDb extends SQLiteOpenHelper {
                     null,
                     null,
                     null,
-                    "1"
-            );
+                    "1");
             return cursor.moveToFirst();
         } finally {
             if (cursor != null) {
@@ -273,13 +334,15 @@ public class HoldingsDb extends SQLiteOpenHelper {
     }
 
     private ContentValues buildValues(String itemType, String no, String weight, String what, String total,
-                                    String date, String time, String legacySource, String legacyId) {
+            String date, String time, String weightUnit, String legacySource, String legacyId) {
+        String normalizedType = normalizeItemType(itemType);
         ContentValues values = new ContentValues();
-        values.put(X_ITEM_TYPE, normalizeItemType(itemType));
+        values.put(X_ITEM_TYPE, normalizedType);
         values.put(X_ITEM_NO, no);
         values.put(X_ITEM_WEIGHT, weight);
         values.put(X_ITEM_WHAT, what);
         values.put(X_ITEM_TOTAL, total);
+        values.put(X_ITEM_WEIGHT_UNIT, normalizeWeightUnit(weightUnit, normalizedType));
         values.put(X_ITEM_DATE, date);
         values.put(X_ITEM_TIME, time);
         values.put(X_LEGACY_SOURCE, legacySource);
@@ -291,59 +354,181 @@ public class HoldingsDb extends SQLiteOpenHelper {
         if (itemType == null || itemType.trim().isEmpty()) {
             return "Unknown";
         }
-        
+
         // Normalize common variations
         String normalized = itemType.trim();
-        
+
         // Handle common metal variations
-        if (normalized.equalsIgnoreCase("Silver") || normalized.equalsIgnoreCase("Ag") || 
-            normalized.equalsIgnoreCase("XAG")) {
+        if (normalized.equalsIgnoreCase("Silver") || normalized.equalsIgnoreCase("Ag") ||
+                normalized.equalsIgnoreCase("XAG")) {
             return "Silver";
         }
-        if (normalized.equalsIgnoreCase("Gold") || normalized.equalsIgnoreCase("Au") || 
-            normalized.equalsIgnoreCase("XAU")) {
+        if (normalized.equalsIgnoreCase("Gold") || normalized.equalsIgnoreCase("Au") ||
+                normalized.equalsIgnoreCase("XAU")) {
             return "Gold";
         }
-        if (normalized.equalsIgnoreCase("Copper") || normalized.equalsIgnoreCase("Cu") || 
-            normalized.equalsIgnoreCase("XCU")) {
+        if (normalized.equalsIgnoreCase("Copper") || normalized.equalsIgnoreCase("Cu") ||
+                normalized.equalsIgnoreCase("XCU")) {
             return "Copper";
         }
-        if (normalized.equalsIgnoreCase("Platinum") || normalized.equalsIgnoreCase("Pt") || 
-            normalized.equalsIgnoreCase("XPT")) {
+        if (normalized.equalsIgnoreCase("Platinum") || normalized.equalsIgnoreCase("Pt") ||
+                normalized.equalsIgnoreCase("XPT")) {
             return "Platinum";
         }
-        if (normalized.equalsIgnoreCase("Palladium") || normalized.equalsIgnoreCase("Pd") || 
-            normalized.equalsIgnoreCase("XPD")) {
+        if (normalized.equalsIgnoreCase("Palladium") || normalized.equalsIgnoreCase("Pd") ||
+                normalized.equalsIgnoreCase("XPD")) {
             return "Palladium";
         }
-        if (normalized.equalsIgnoreCase("Lead") || normalized.equalsIgnoreCase("Pb") || 
-            normalized.equalsIgnoreCase("XLD")) {
+        if (normalized.equalsIgnoreCase("Lead") || normalized.equalsIgnoreCase("Pb") ||
+                normalized.equalsIgnoreCase("XLD")) {
             return "Lead";
         }
-        if (normalized.equalsIgnoreCase("Aluminum") || normalized.equalsIgnoreCase("Al") || 
-            normalized.equalsIgnoreCase("XAL")) {
+        if (normalized.equalsIgnoreCase("Aluminum") || normalized.equalsIgnoreCase("Al") ||
+                normalized.equalsIgnoreCase("XAL")) {
             return "Aluminum";
         }
-        if (normalized.equalsIgnoreCase("Nickel") || normalized.equalsIgnoreCase("Ni") || 
-            normalized.equalsIgnoreCase("XNI")) {
+        if (normalized.equalsIgnoreCase("Nickel") || normalized.equalsIgnoreCase("Ni") ||
+                normalized.equalsIgnoreCase("XNI")) {
             return "Nickel";
         }
-        if (normalized.equalsIgnoreCase("Zinc") || normalized.equalsIgnoreCase("Zn") || 
-            normalized.equalsIgnoreCase("XZN")) {
+        if (normalized.equalsIgnoreCase("Zinc") || normalized.equalsIgnoreCase("Zn") ||
+                normalized.equalsIgnoreCase("XZN")) {
             return "Zinc";
         }
-        
+
         // Handle cryptocurrency variations
-        if (normalized.equalsIgnoreCase("Bitcoin") || normalized.equalsIgnoreCase("BTC") || 
-            normalized.equalsIgnoreCase("XBT")) {
+        if (normalized.equalsIgnoreCase("Bitcoin") || normalized.equalsIgnoreCase("BTC") ||
+                normalized.equalsIgnoreCase("XBT")) {
             return "Bitcoin";
         }
         if (normalized.equalsIgnoreCase("Ethereum") || normalized.equalsIgnoreCase("ETH")) {
             return "Ethereum";
         }
-        
+
+        String stockTicker = normalizeStockTicker(normalized);
+        if (stockTicker != null) {
+            return stockTicker;
+        }
+
         // Capitalize first letter of other items
         return normalized.substring(0, 1).toUpperCase() + normalized.substring(1).toLowerCase();
+    }
+
+    public static boolean isStockTicker(String itemType) {
+        return normalizeStockTicker(itemType) != null;
+    }
+
+    public static String toAsxQuoteSymbol(String itemType) {
+        String stockTicker = normalizeStockTicker(itemType);
+        return stockTicker == null ? "" : stockTicker + STOCK_SUFFIX_AU;
+    }
+
+    public static String normalizeStockTickerInput(String itemType) {
+        String directTicker = sanitizeStockTickerCandidate(itemType);
+        if (directTicker != null) {
+            return directTicker;
+        }
+        String sharesTicker = extractStockTickerFromSharesText(itemType);
+        return sharesTicker == null ? "" : sharesTicker;
+    }
+
+    private static String normalizeStockTicker(String itemType) {
+        if (itemType == null) {
+            return null;
+        }
+
+        String trimmed = itemType.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+
+        String explicitSharesTicker = extractStockTickerFromSharesText(trimmed);
+        if (explicitSharesTicker != null) {
+            return explicitSharesTicker;
+        }
+
+        String explicitTicker = sanitizeStockTickerCandidate(trimmed);
+        String upperTrimmed = trimmed.toUpperCase(Locale.US);
+        if (explicitTicker != null
+                && (upperTrimmed.endsWith(STOCK_SUFFIX_AX)
+                        || upperTrimmed.endsWith(STOCK_SUFFIX_ASX)
+                        || upperTrimmed.endsWith(STOCK_SUFFIX_AU))) {
+            return explicitTicker;
+        }
+
+        String uppercase = trimmed.toUpperCase(Locale.US);
+        if (!trimmed.equals(uppercase)
+                && !uppercase.endsWith(STOCK_SUFFIX_AX)
+                && !uppercase.endsWith(STOCK_SUFFIX_ASX)
+                && !uppercase.endsWith(STOCK_SUFFIX_AU)) {
+            return null;
+        }
+
+        String candidate = uppercase;
+        if (candidate.endsWith(STOCK_SUFFIX_AU)) {
+            candidate = candidate.substring(0, candidate.length() - STOCK_SUFFIX_AU.length());
+        } else if (candidate.endsWith(STOCK_SUFFIX_ASX)) {
+            candidate = candidate.substring(0, candidate.length() - STOCK_SUFFIX_ASX.length());
+        } else if (candidate.endsWith(STOCK_SUFFIX_AX)) {
+            candidate = candidate.substring(0, candidate.length() - STOCK_SUFFIX_AX.length());
+        }
+        if (candidate.length() < 2 || candidate.length() > 5) {
+            return null;
+        }
+
+        for (int i = 0; i < candidate.length(); i++) {
+            char ch = candidate.charAt(i);
+            if (!Character.isLetterOrDigit(ch)) {
+                return null;
+            }
+        }
+        return candidate;
+    }
+
+    private static String extractStockTickerFromSharesText(String itemType) {
+        if (itemType == null) {
+            return null;
+        }
+        String normalized = itemType.trim().replaceAll("\\s+", " ");
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        String uppercase = normalized.toUpperCase(Locale.US);
+        if (!uppercase.endsWith(" SHARE") && !uppercase.endsWith(" SHARES")) {
+            return null;
+        }
+
+        int firstSpace = normalized.indexOf(' ');
+        String tickerPart = firstSpace > 0 ? normalized.substring(0, firstSpace) : normalized;
+        return sanitizeStockTickerCandidate(tickerPart);
+    }
+
+    private static String sanitizeStockTickerCandidate(String itemType) {
+        if (itemType == null) {
+            return null;
+        }
+        String candidate = itemType.trim().toUpperCase(Locale.US);
+        if (candidate.isEmpty()) {
+            return null;
+        }
+        if (candidate.endsWith(STOCK_SUFFIX_AU)) {
+            candidate = candidate.substring(0, candidate.length() - STOCK_SUFFIX_AU.length());
+        } else if (candidate.endsWith(STOCK_SUFFIX_ASX)) {
+            candidate = candidate.substring(0, candidate.length() - STOCK_SUFFIX_ASX.length());
+        } else if (candidate.endsWith(STOCK_SUFFIX_AX)) {
+            candidate = candidate.substring(0, candidate.length() - STOCK_SUFFIX_AX.length());
+        }
+        if (candidate.length() < 2 || candidate.length() > 5) {
+            return null;
+        }
+
+        for (int i = 0; i < candidate.length(); i++) {
+            char ch = candidate.charAt(i);
+            if (!Character.isLetterOrDigit(ch)) {
+                return null;
+            }
+        }
+        return candidate;
     }
 
     private HoldingItem readItem(Cursor cursor) {
@@ -354,10 +539,26 @@ public class HoldingsDb extends SQLiteOpenHelper {
         item.setWeight(cursor.getString(cursor.getColumnIndexOrThrow(X_ITEM_WEIGHT)));
         item.setWhat(cursor.getString(cursor.getColumnIndexOrThrow(X_ITEM_WHAT)));
         item.setTotal(cursor.getString(cursor.getColumnIndexOrThrow(X_ITEM_TOTAL)));
+        int weightUnitIndex = cursor.getColumnIndex(X_ITEM_WEIGHT_UNIT);
+        String storedWeightUnit = weightUnitIndex >= 0 ? cursor.getString(weightUnitIndex) : null;
+        item.setWeightUnit(normalizeWeightUnit(storedWeightUnit, item.getItemType()));
         item.setUpdateDate(cursor.getString(cursor.getColumnIndexOrThrow(X_ITEM_DATE)));
         item.setUpdateTime(cursor.getString(cursor.getColumnIndexOrThrow(X_ITEM_TIME)));
         item.setLegacySource(cursor.getString(cursor.getColumnIndexOrThrow(X_LEGACY_SOURCE)));
         item.setLegacyId(cursor.getString(cursor.getColumnIndexOrThrow(X_LEGACY_ID)));
         return item;
+    }
+
+    public static String normalizeWeightUnit(String weightUnit, String itemType) {
+        String unit = weightUnit == null ? "" : weightUnit.trim().toLowerCase(Locale.US);
+        String normalizedType = normalizeItemType(itemType);
+        if (isDetailedMetalType(normalizedType)) {
+            return "kg".equals(unit) ? "kg" : "oz";
+        }
+        return unit;
+    }
+
+    private static boolean isDetailedMetalType(String itemType) {
+        return "Silver".equalsIgnoreCase(itemType) || "Gold".equalsIgnoreCase(itemType);
     }
 }

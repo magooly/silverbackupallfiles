@@ -109,20 +109,9 @@ public class GoldT_DB extends SQLiteOpenHelper
         cv.put(X_S_DATE, date);
         cv.put(X_S_TIME, time);
 
-        db.update(TABLE_NAME, cv, X_ID + "=" + id, null);
-
-        int cb=db.update(TABLE_NAME, cv, X_ID + "=" + id, null);
-
-
-        Log.d(TAG, "updateData: queary "+db.update(TABLE_NAME, cv, X_ID + "=" + id, null));
-
-
-        Log.d(TAG, "updateData: cb "+cb);
-
-
-//        db.update(TABLE_NAME, cv, "x_QuestionID="+id, null);
-
-        return true;
+        int updatedRows = db.update(TABLE_NAME, cv, X_ID + "=?", new String[] { id });
+        Log.d(TAG, "updateData: updatedRows " + updatedRows);
+        return updatedRows > 0;
     }
 
 
@@ -137,13 +126,13 @@ public class GoldT_DB extends SQLiteOpenHelper
             while (cursor.moveToNext())
             {
                 SilverT_DBModel silverT_dbModel = new SilverT_DBModel();
-                silverT_dbModel.setX_ID(String.valueOf(cursor.getLong(cursor.getColumnIndex(GoldT_DB.X_ID))));
-                silverT_dbModel.setX_S_NO(String.valueOf(cursor.getLong(cursor.getColumnIndex(GoldT_DB.X_S_NO))));
-                silverT_dbModel.setX_S_WEIGHT(String.valueOf(cursor.getString(cursor.getColumnIndex(GoldT_DB.X_S_WEIGHT))));
-                silverT_dbModel.setX_S_WHAT(String.valueOf(cursor.getString(cursor.getColumnIndex(GoldT_DB.X_S_WHAT))));
-                silverT_dbModel.setX_S_TOTAL(String.valueOf(cursor.getString(cursor.getColumnIndex(GoldT_DB.X_S_TOTAL))));
-                silverT_dbModel.setX_S_DATE(String.valueOf(cursor.getString(cursor.getColumnIndex(GoldT_DB.X_S_DATE))));
-                silverT_dbModel.setX_S_TIME(String.valueOf(cursor.getString(cursor.getColumnIndex(GoldT_DB.X_S_TIME))));
+                silverT_dbModel.setX_ID(String.valueOf(cursor.getLong(cursor.getColumnIndexOrThrow(GoldT_DB.X_ID))));
+                silverT_dbModel.setX_S_NO(String.valueOf(cursor.getLong(cursor.getColumnIndexOrThrow(GoldT_DB.X_S_NO))));
+                silverT_dbModel.setX_S_WEIGHT(String.valueOf(cursor.getString(cursor.getColumnIndexOrThrow(GoldT_DB.X_S_WEIGHT))));
+                silverT_dbModel.setX_S_WHAT(String.valueOf(cursor.getString(cursor.getColumnIndexOrThrow(GoldT_DB.X_S_WHAT))));
+                silverT_dbModel.setX_S_TOTAL(String.valueOf(cursor.getString(cursor.getColumnIndexOrThrow(GoldT_DB.X_S_TOTAL))));
+                silverT_dbModel.setX_S_DATE(String.valueOf(cursor.getString(cursor.getColumnIndexOrThrow(GoldT_DB.X_S_DATE))));
+                silverT_dbModel.setX_S_TIME(String.valueOf(cursor.getString(cursor.getColumnIndexOrThrow(GoldT_DB.X_S_TIME))));
                 silverTDb.add(silverT_dbModel);
             }
         }

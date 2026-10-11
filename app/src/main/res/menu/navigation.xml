@@ -16,4 +16,10 @@
         android:orderInCategory="102"
         android:title="@string/action_restore"
         app:showAsAction="never" />
+    <item
+        android:id="@+id/action_dark_mode"
+        android:orderInCategory="103"
+        android:checkable="true"
+        android:title="@string/action_dark_mode"
+        app:showAsAction="never" />
 </menu>

@@ -2,6 +2,7 @@ package com.projects.metalscrypto.holding.Retrofit;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.projects.metalscrypto.holding.BuildConfig;
 
 import java.util.concurrent.TimeUnit;
 
@@ -14,15 +15,14 @@ import retrofit2.converter.gson.GsonConverterFactory;
  * Created by Akash on 06-Mar-19.
  */
 public class ApiHelperClass {
-    // public static final String BASE_URL = "https://metals-api.com/api/";
-    public static final String BASE_URL = "https://api.metalpriceapi.com/v1/";
+    public static final String BASE_URL = "https://api.metalcharts.org/";
     private static Retrofit retrofit = null;
-    public static final int REQUEST_TIMEOUT = 30000;
+    public static final int REQUEST_TIMEOUT = 30;
 
     public static Retrofit getClient()
     {
         HttpLoggingInterceptor logging = new HttpLoggingInterceptor(); // set your desired log level
-        logging.setLevel(HttpLoggingInterceptor.Level.BODY);
+        logging.setLevel(BuildConfig.DEBUG ? HttpLoggingInterceptor.Level.BODY : HttpLoggingInterceptor.Level.NONE);
         OkHttpClient.Builder httpClient = new OkHttpClient.Builder(); // add your other interceptors // add logging as last interceptor
         Gson gson = new GsonBuilder()
                 .setLenient()

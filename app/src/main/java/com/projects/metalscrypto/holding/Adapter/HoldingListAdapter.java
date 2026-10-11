@@ -46,7 +46,7 @@ public class HoldingListAdapter extends RecyclerView.Adapter<HoldingListAdapter.
 
         if (detailedType) {
             holder.tvNo.setText(item.getNumber());
-            holder.tvWeight.setText(item.getWeight());
+            holder.tvWeight.setText(formatWeightWithUnit(item));
             holder.tvWhat.setText(item.getWhat());
             holder.tvTotal.setText(item.getTotal());
         } else {
@@ -59,6 +59,7 @@ public class HoldingListAdapter extends RecyclerView.Adapter<HoldingListAdapter.
                 item.getId(),
                 item.getNumber(),
                 item.getWeight(),
+                item.getWeightUnit(),
                 item.getWhat(),
                 item.getTotal()
         );
@@ -83,6 +84,18 @@ public class HoldingListAdapter extends RecyclerView.Adapter<HoldingListAdapter.
     private boolean isDetailedType(String itemType) {
         String normalized = HoldingsDb.normalizeItemType(itemType);
         return "Silver".equalsIgnoreCase(normalized) || "Gold".equalsIgnoreCase(normalized);
+    }
+
+    private String formatWeightWithUnit(HoldingItem item) {
+        String normalizedType = HoldingsDb.normalizeItemType(item.getItemType());
+        if (!"Silver".equalsIgnoreCase(normalizedType)) {
+            return item.getWeight();
+        }
+        String unit = HoldingsDb.normalizeWeightUnit(item.getWeightUnit(), normalizedType);
+        if (item.getWeight() == null || item.getWeight().trim().isEmpty()) {
+            return unit;
+        }
+        return item.getWeight() + " " + unit;
     }
 
     @Override

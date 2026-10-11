@@ -8,6 +8,7 @@ public class HoldingItem {
     private String weight;
     private String what;
     private String total;
+    private String weightUnit;
     private String updateDate;
     private String updateTime;
     private String legacySource;
@@ -59,6 +60,14 @@ public class HoldingItem {
 
     public void setTotal(String total) {
         this.total = total;
+    }
+
+    public String getWeightUnit() {
+        return weightUnit;
+    }
+
+    public void setWeightUnit(String weightUnit) {
+        this.weightUnit = weightUnit;
     }
 
     public String getUpdateDate() {

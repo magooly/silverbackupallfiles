@@ -11,6 +11,7 @@ import android.net.Uri;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -25,6 +26,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -39,6 +41,7 @@ import com.projects.metalscrypto.holding.DBManager.HoldingsDb;
 import com.projects.metalscrypto.holding.DBManager.SilverT_DB;
 import com.projects.metalscrypto.holding.Retrofit.ApiHelperClass;
 import com.projects.metalscrypto.holding.Retrofit.CryptoApiHelperClass;
+import com.projects.metalscrypto.holding.Retrofit.StockApiHelperClass;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -59,12 +62,19 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class ResListActivity extends AppCompatActivity {
+    private static final String TAG = "ResListActivity";
     private static final int REQUEST_WRITE_STORAGE = 112;
     private static final String TYPE_SILVER = "Silver";
     private static final String TYPE_GOLD = "Gold";
+    private static final String WEIGHT_UNIT_OZ = "oz";
+    private static final String WEIGHT_UNIT_KG = "kg";
+    private static final float KG_TO_OZ = 32.150746F;
     private static final String API_ERROR_LOG_FILE = "api_errors.txt";
+    private static final String PREF_DARK_MODE = "pref_dark_mode";
 
     private Context mContext;
     private LinearLayout holdingsSectionsContainer;
@@ -83,6 +93,9 @@ public class ResListActivity extends AppCompatActivity {
     private float prdNo;
     private float prdWeight;
     private float totalPrice;
+    private String selectedWeightUnit = WEIGHT_UNIT_OZ;
+    private String selectedPopupType = "";
+    private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -105,14 +118,17 @@ public class ResListActivity extends AppCompatActivity {
 
     private void checkPermissions() {
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_WRITE_STORAGE);
+            if (ContextCompat.checkSelfPermission(this,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, new String[] { Manifest.permission.WRITE_EXTERNAL_STORAGE },
+                        REQUEST_WRITE_STORAGE);
             }
         }
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+            @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_WRITE_STORAGE) {
             if (grantResults.length == 0 || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
@@ -154,9 +170,6 @@ public class ResListActivity extends AppCompatActivity {
 
     private void loadHoldingSections() {
         holdingsSectionsContainer.removeAllViews();
-
-        // Keep Silver/Gold as detailed rows; collapse other types into one aggregate row.
-        consolidateNonDetailedTypes();
 
         List<HoldingItem> allItems = holdingsDb.getAllItems();
         if (allItems.isEmpty()) {
@@ -261,8 +274,9 @@ public class ResListActivity extends AppCompatActivity {
             Calendar calendar = Calendar.getInstance();
             String nowTime = new SimpleDateFormat("HH:mm:ss a", Locale.getDefault()).format(calendar.getTime());
             String totalText = formatTotal(total);
+            String compactLabel = resolveCompactLabel(itemType, keeper.getWhat());
 
-            holdingsDb.updateData(keeper.getId(), itemType, "1", totalText, "Total", totalText, nowDate, nowTime);
+            holdingsDb.updateData(keeper.getId(), itemType, "1", totalText, compactLabel, totalText, nowDate, nowTime);
 
             for (int i = 1; i < typeItems.size(); i++) {
                 holdingsDb.deleteData(typeItems.get(i).getId());
@@ -309,7 +323,10 @@ public class ResListActivity extends AppCompatActivity {
         if ("Ethereum".equalsIgnoreCase(itemType)) {
             return 10;
         }
-        return 11;
+        if (HoldingsDb.isStockTicker(itemType)) {
+            return 11;
+        }
+        return 12;
     }
 
     private float calculateTotal(List<HoldingItem> items) {
@@ -326,7 +343,7 @@ public class ResListActivity extends AppCompatActivity {
         }
         try {
             return Float.parseFloat(value.replace(",", "").trim());
-        } catch (NumberFormatException ignored) {
+        } catch (NumberFormatException e) {
             return 0;
         }
     }
@@ -335,7 +352,13 @@ public class ResListActivity extends AppCompatActivity {
         return new DecimalFormat("#,##0.##").format(total);
     }
 
-    public void displayPopUp(final String itemType, final String id, String no, String weight, String what, String total) {
+    public void displayPopUp(final String itemType, final String id, String no, String weight, String what,
+            String total) {
+        displayPopUp(itemType, id, no, weight, WEIGHT_UNIT_OZ, what, total);
+    }
+
+    public void displayPopUp(final String itemType, final String id, String no, String weight, String weightUnit, String what,
+            String total) {
         final AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(mContext, R.style.MyDialogTheme);
         LayoutInflater inflater = this.getLayoutInflater();
         final View dialogView = inflater.inflate(R.layout.update_item_popup, null);
@@ -352,6 +375,7 @@ public class ResListActivity extends AppCompatActivity {
         View rowNo = dialogView.findViewById(R.id.row_no);
         View rowWeight = dialogView.findViewById(R.id.row_weight);
         View rowWhat = dialogView.findViewById(R.id.row_what);
+        TextView tvWeightLabel = dialogView.findViewById(R.id.tv_total_input_label);
 
         etItemType.setText(itemType);
         etNo.setText(no);
@@ -359,6 +383,8 @@ public class ResListActivity extends AppCompatActivity {
         etWhat.setText(what);
         etTotal.setText(total);
         etItemType.setEnabled(false);
+        selectedPopupType = HoldingsDb.normalizeItemType(itemType);
+        selectedWeightUnit = HoldingsDb.normalizeWeightUnit(weightUnit, selectedPopupType);
 
         boolean detailedType = isDetailedType(itemType);
         if (detailedType) {
@@ -366,6 +392,14 @@ public class ResListActivity extends AppCompatActivity {
             rowWeight.setVisibility(View.VISIBLE);
             rowWhat.setVisibility(View.VISIBLE);
             etTotal.setEnabled(false);
+            updatePopupWeightLabel(tvWeightLabel);
+            tvWeightLabel.setOnClickListener(v -> {
+                if (TYPE_SILVER.equalsIgnoreCase(selectedPopupType)) {
+                    selectedWeightUnit = WEIGHT_UNIT_KG.equals(selectedWeightUnit) ? WEIGHT_UNIT_OZ : WEIGHT_UNIT_KG;
+                    updatePopupWeightLabel(tvWeightLabel);
+                    checkData(etNo.getText().toString(), etWeight.getText().toString());
+                }
+            });
         } else {
             rowNo.setVisibility(View.GONE);
             rowWeight.setVisibility(View.GONE);
@@ -375,6 +409,7 @@ public class ResListActivity extends AppCompatActivity {
             if (etTotal.getText() != null) {
                 etTotal.setSelection(etTotal.getText().length());
             }
+            tvWeightLabel.setOnClickListener(null);
         }
 
         final AlertDialog dialog = dialogBuilder.create();
@@ -387,23 +422,25 @@ public class ResListActivity extends AppCompatActivity {
                 id,
                 etNo.getText().toString(),
                 etWeight.getText().toString(),
+                selectedWeightUnit,
                 etWhat.getText().toString(),
                 etTotal.getText().toString(),
-                dialog
-        ));
-        
+                dialog));
+
         btnDelete.setOnClickListener(v -> {
             new AlertDialog.Builder(mContext)
                     .setTitle("Delete " + itemType)
                     .setMessage("Are you sure you want to delete this " + itemType + " item?")
                     .setPositiveButton("Delete", (deleteDialog, which) -> {
-                        if (holdingsDb.deleteData(id)) {
+                        if (deleteHoldingItem(id, itemType, no, weight, selectedWeightUnit, what, total)) {
                             BackupSyncManager.exportSnapshot(this);
-                            Toast.makeText(mContext, itemType + " item deleted successfully.", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(mContext, itemType + " item deleted successfully.", Toast.LENGTH_SHORT)
+                                    .show();
                             deleteDialog.dismiss();
                             loadHoldingSections();
                         } else {
-                            Toast.makeText(mContext, "Failed to delete " + itemType + " item.", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(mContext, "Failed to delete " + itemType + " item.", Toast.LENGTH_SHORT)
+                                    .show();
                         }
                     })
                     .setNegativeButton("Cancel", (cancelDialog, which) -> cancelDialog.dismiss())
@@ -413,7 +450,8 @@ public class ResListActivity extends AppCompatActivity {
         if (detailedType) {
             TextWatcher textWatcher = new TextWatcher() {
                 @Override
-                public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {}
+                public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+                }
 
                 @Override
                 public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
@@ -421,12 +459,36 @@ public class ResListActivity extends AppCompatActivity {
                 }
 
                 @Override
-                public void afterTextChanged(Editable editable) {}
+                public void afterTextChanged(Editable editable) {
+                }
             };
 
             etNo.addTextChangedListener(textWatcher);
             etWeight.addTextChangedListener(textWatcher);
         }
+    }
+
+    private boolean deleteHoldingItem(String id, String itemType, String no, String weight, String weightUnit, String what, String total) {
+        if (holdingsDb.deleteData(id)) {
+            return true;
+        }
+
+        List<HoldingItem> candidates = holdingsDb.getItemsByType(HoldingsDb.normalizeItemType(itemType));
+        String normalizedWeightUnit = HoldingsDb.normalizeWeightUnit(weightUnit, itemType);
+        for (HoldingItem candidate : candidates) {
+            if (safeEquals(candidate.getNumber(), no)
+                    && safeEquals(candidate.getWeight(), weight)
+                    && safeEquals(HoldingsDb.normalizeWeightUnit(candidate.getWeightUnit(), itemType), normalizedWeightUnit)
+                    && safeEquals(candidate.getWhat(), what)
+                    && safeEquals(candidate.getTotal(), total)) {
+                return holdingsDb.deleteData(candidate.getId());
+            }
+        }
+        return false;
+    }
+
+    private boolean safeEquals(String left, String right) {
+        return (left == null ? "" : left.trim()).equals(right == null ? "" : right.trim());
     }
 
     private void checkData(String no, String weight) {
@@ -437,7 +499,10 @@ public class ResListActivity extends AppCompatActivity {
             try {
                 prdNo = Float.parseFloat(no);
                 prdWeight = Float.parseFloat(weight);
-                totalPrice = prdNo * prdWeight;
+                float unitWeightOz = TYPE_SILVER.equalsIgnoreCase(selectedPopupType) && WEIGHT_UNIT_KG.equals(selectedWeightUnit)
+                        ? prdWeight * KG_TO_OZ
+                        : prdWeight;
+                totalPrice = prdNo * unitWeightOz;
                 etTotal.setText(new DecimalFormat("#,##0.##").format(totalPrice));
             } catch (NumberFormatException e) {
                 etTotal.setText("");
@@ -447,7 +512,8 @@ public class ResListActivity extends AppCompatActivity {
         }
     }
 
-    private void validateData(String itemType, String id, String no, String weight, String what, String total, AlertDialog dialog) {
+    private void validateData(String itemType, String id, String no, String weight, String weightUnit, String what, String total,
+            AlertDialog dialog) {
         boolean detailedType = isDetailedType(itemType);
         if (itemType.isEmpty()) {
             Toast.makeText(mContext, getString(R.string.please_enter_item_type), Toast.LENGTH_SHORT).show();
@@ -463,14 +529,17 @@ public class ResListActivity extends AppCompatActivity {
             if (!detailedType) {
                 no = "1";
                 weight = total;
-                what = "Total";
+                what = resolveCompactLabel(itemType, what);
             }
             String date = new SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(new Date());
             Calendar calendar = Calendar.getInstance();
             SimpleDateFormat mdformat = new SimpleDateFormat("HH:mm:ss a", Locale.getDefault());
             String time = mdformat.format(calendar.getTime());
 
-            boolean update = holdingsDb.updateData(id, itemType, no, weight, what, total, date, time);
+            String normalizedWeightUnit = detailedType
+                    ? HoldingsDb.normalizeWeightUnit(weightUnit, itemType)
+                    : "";
+            boolean update = holdingsDb.updateData(id, itemType, no, weight, what, total, date, time, normalizedWeightUnit);
             if (update) {
                 BackupSyncManager.exportSnapshot(this);
                 Toast.makeText(mContext, itemType + " data updated successfully.", Toast.LENGTH_SHORT).show();
@@ -482,6 +551,14 @@ public class ResListActivity extends AppCompatActivity {
         }
     }
 
+    private void updatePopupWeightLabel(TextView tvWeightLabel) {
+        if (TYPE_SILVER.equalsIgnoreCase(selectedPopupType)) {
+            tvWeightLabel.setText(getString(R.string.weight_per_item_toggle_label, selectedWeightUnit));
+            return;
+        }
+        tvWeightLabel.setText(R.string.weight_per_item_oz_label);
+    }
+
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
@@ -491,44 +568,152 @@ public class ResListActivity extends AppCompatActivity {
             return true;
         }
         if (id == R.id.action_backup) {
-            BackupSyncManager.exportSnapshot(this);
-            Toast.makeText(this, R.string.backup_done, Toast.LENGTH_SHORT).show();
+            promptForBackupFileName(false);
             return true;
         }
         if (id == R.id.action_restore) {
-            if (!BackupSyncManager.hasBackupFile(this)) {
-                Toast.makeText(this, R.string.restore_no_file, Toast.LENGTH_SHORT).show();
-            } else {
-                BackupSyncManager.restoreNow(this);
-                migrateLegacyData();
-                loadHoldingSections();
-                Toast.makeText(this, R.string.restore_done, Toast.LENGTH_SHORT).show();
-            }
+            showAvailableBackupsForRestore();
+            return true;
+        }
+        if (id == R.id.action_dark_mode) {
+            boolean isChecked = !item.isChecked();
+            item.setChecked(isChecked);
+            getSharedPreferences(getString(R.string.app_name), MODE_PRIVATE)
+                    .edit()
+                    .putBoolean(PREF_DARK_MODE, isChecked)
+                    .apply();
+            AppCompatDelegate.setDefaultNightMode(
+                    isChecked ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
+            recreate();
             return true;
         }
 
         return super.onOptionsItemSelected(item);
     }
 
+    private void promptForBackupFileName(boolean restore) {
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_TEXT);
+        input.setSingleLine(true);
+        input.setHint(R.string.backup_filename_hint);
+        input.setText(BackupSyncManager.normalizeBackupFileName("holdings_backup"));
+        input.setSelection(input.getText().length());
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle(restore ? R.string.action_restore : R.string.action_backup)
+                .setMessage(R.string.backup_filename_prompt)
+                .setView(input)
+                .setPositiveButton(restore ? R.string.action_restore : R.string.action_backup, null)
+                .setNegativeButton(R.string.cancel, null)
+                .create();
+
+        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String fileName = input.getText().toString().trim();
+            if (fileName.isEmpty()) {
+                Toast.makeText(this, R.string.backup_filename_required, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            String normalizedFileName = BackupSyncManager.normalizeBackupFileName(fileName);
+            if (restore) {
+                showRestoreModeDialog(normalizedFileName);
+            } else {
+                ioExecutor.execute(() -> {
+                    BackupSyncManager.BackupResult exportResult = BackupSyncManager.exportSnapshotResult(this,
+                            normalizedFileName, true);
+                    runOnUiThread(() -> {
+                        if (!exportResult.isSuccess()) {
+                            Toast.makeText(this, getString(R.string.backup_failed, exportResult.getMessage()), Toast.LENGTH_LONG)
+                                    .show();
+                            return;
+                        }
+                        Toast.makeText(this, exportResult.getMessage(), Toast.LENGTH_SHORT).show();
+                    });
+                });
+            }
+            dialog.dismiss();
+        }));
+
+        dialog.show();
+    }
+
+    private void showAvailableBackupsForRestore() {
+        List<String> availableBackups = BackupSyncManager.listAvailableBackupFiles(this);
+        if (availableBackups.isEmpty()) {
+            Toast.makeText(this, R.string.restore_no_file, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String[] backupNames = availableBackups.toArray(new String[0]);
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.restore_select_backup)
+                .setItems(backupNames, (dialog, which) -> showRestoreModeDialog(backupNames[which]))
+                .setPositiveButton(R.string.restore_enter_filename, (dialog, which) -> promptForBackupFileName(true))
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void showRestoreModeDialog(String backupFileName) {
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.restore_mode_title)
+                .setItems(new CharSequence[] { getString(R.string.restore_mode_merge), getString(R.string.restore_mode_replace) },
+                        (dialog, which) -> restoreBackupFile(backupFileName,
+                                which == 1 ? BackupSyncManager.RestoreMode.REPLACE : BackupSyncManager.RestoreMode.MERGE))
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void restoreBackupFile(String backupFileName, BackupSyncManager.RestoreMode mode) {
+        if (!BackupSyncManager.hasBackupFile(this, backupFileName)) {
+            Toast.makeText(this, R.string.restore_no_file, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        ioExecutor.execute(() -> {
+            BackupSyncManager.BackupResult restoreResult = BackupSyncManager.restoreNowResult(this, backupFileName, mode);
+            runOnUiThread(() -> {
+                if (!restoreResult.isSuccess()) {
+                    Toast.makeText(this, getString(R.string.restore_failed, restoreResult.getMessage()), Toast.LENGTH_LONG)
+                            .show();
+                    return;
+                }
+                migrateLegacyData();
+                consolidateNonDetailedTypes();
+                loadHoldingSections();
+                Toast.makeText(this, restoreResult.getMessage(), Toast.LENGTH_SHORT).show();
+            });
+        });
+    }
+
+    @Override
+    protected void onDestroy() {
+        ioExecutor.shutdownNow();
+        super.onDestroy();
+    }
+
     private void showAboutDialog() {
         try {
             String aboutText = readAboutFile();
-            String metalsSourceText = getString(R.string.metals_source_label, formatSourceHost(ApiHelperClass.BASE_URL));
+            String metalsSourceText = getString(R.string.metals_source_label,
+                    formatSourceHost(ApiHelperClass.BASE_URL));
             String apiErrorLog = readApiErrorLog();
-            String cryptoSourceText = getString(R.string.crypto_source_label, formatSourceHost(CryptoApiHelperClass.BASE_URL));
+            String cryptoSourceText = getString(R.string.crypto_source_label,
+                    formatSourceHost(CryptoApiHelperClass.BASE_URL));
+            String stockSourceText = getString(R.string.stock_source_label,
+                    formatSourceHost(StockApiHelperClass.BASE_URL));
             String backupStatusText = buildBackupStatusText();
             String displayText = aboutText
                     + "\n\n"
                     + metalsSourceText
                     + "\n"
                     + cryptoSourceText
+                    + "\n"
+                    + stockSourceText
                     + "\n\n"
                     + backupStatusText
                     + "\n\n"
                     + getString(R.string.api_error_log_heading)
                     + "\n"
                     + apiErrorLog;
-            
+
             // Create a scrollable TextView to display the text
             ScrollView scrollView = new ScrollView(this);
             TextView textView = new TextView(this);
@@ -547,7 +732,7 @@ public class ResListActivity extends AppCompatActivity {
                     .create();
             dialog.show();
         } catch (IOException e) {
-            e.printStackTrace();
+            Log.e(TAG, "Failed to show about dialog", e);
             Toast.makeText(this, "Error loading about information", Toast.LENGTH_SHORT).show();
         }
     }
@@ -560,7 +745,8 @@ public class ResListActivity extends AppCompatActivity {
             Uri uri = Uri.parse(url.trim());
             String host = uri.getHost();
             return host != null && !host.trim().isEmpty() ? host : url;
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            Log.w(TAG, "Unable to parse source host: " + url, e);
             return url;
         }
     }
@@ -616,17 +802,19 @@ public class ResListActivity extends AppCompatActivity {
             String content = readStream(fis).trim();
             return content.isEmpty() ? getString(R.string.api_error_log_empty) : content;
         } catch (IOException e) {
+            Log.w(TAG, "Failed to read API error log", e);
             return getString(R.string.api_error_log_empty);
         } finally {
             if (fis != null) {
                 try {
                     fis.close();
-                } catch (IOException ignored) {
+                } catch (IOException e) {
+                    Log.w(TAG, "Failed closing API error log stream", e);
                 }
             }
         }
     }
-    
+
     private String readAboutFile() throws IOException {
         // First try to read from internal storage
         try {
@@ -638,7 +826,7 @@ public class ResListActivity extends AppCompatActivity {
                 try {
                     File aboutDir = new File(Environment.getExternalStorageDirectory(), "SilverHolding");
                     File aboutFile = new File(aboutDir, "about.txt");
-                    
+
                     if (aboutFile.exists()) {
                         FileInputStream fis = new FileInputStream(aboutFile);
                         String content = readStream(fis);
@@ -646,22 +834,22 @@ public class ResListActivity extends AppCompatActivity {
                         return content;
                     }
                 } catch (IOException ex) {
-                    // Continue to assets if external storage read fails
+                    Log.w(TAG, "External about.txt read failed, falling back to assets", ex);
                 }
             }
-            
+
             // If both internal and external storage fail, read from assets
             InputStream is = getAssets().open("about.txt");
             String defaultContent = readStream(is);
             is.close();
-            
+
             // Save the default content to internal storage for next time
             saveToInternalStorage(defaultContent);
-            
+
             return defaultContent;
         }
     }
-    
+
     private String readInternalAboutFile() throws IOException {
         // Try to read from internal storage
         File internalFile = new File(getFilesDir(), "about.txt");
@@ -671,12 +859,12 @@ public class ResListActivity extends AppCompatActivity {
             fis.close();
             return content;
         }
-        
+
         // If not found in internal storage, throw FileNotFoundException
         // to allow readAboutFile to try other sources
         throw new FileNotFoundException("About file not found in internal storage");
     }
-    
+
     private String readStream(InputStream inputStream) throws IOException {
         ByteArrayOutputStream result = new ByteArrayOutputStream();
         byte[] buffer = new byte[1024];
@@ -686,11 +874,11 @@ public class ResListActivity extends AppCompatActivity {
         }
         return result.toString(StandardCharsets.UTF_8.name());
     }
-    
+
     private void showEditAboutDialog(String currentText) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Edit About Text");
-        
+
         // Set up the input
         final EditText input = new EditText(this);
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
@@ -699,24 +887,24 @@ public class ResListActivity extends AppCompatActivity {
         input.setScrollBarStyle(View.SCROLLBARS_INSIDE_INSET);
         input.setText(currentText);
         input.setSelection(input.getText().length());
-        
+
         builder.setView(input);
-        
+
         // Set up the buttons
         builder.setPositiveButton("Save", (dialog, which) -> {
             String newText = input.getText().toString();
             saveAboutText(newText);
         });
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
-        
+
         builder.show();
     }
-    
+
     private void saveAboutText(String text) {
         // Always save to internal storage first (this works on all Android versions)
         try {
             saveToInternalStorage(text);
-            
+
             // For Android 9 (API 28) and below, also save to external storage
             if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
                 String state = Environment.getExternalStorageState();
@@ -730,10 +918,10 @@ public class ResListActivity extends AppCompatActivity {
                         FileOutputStream fos = new FileOutputStream(aboutFile);
                         fos.write(text.getBytes(StandardCharsets.UTF_8));
                         fos.close();
-                        Toast.makeText(this, "About text saved to both internal and external storage", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, "About text saved to both internal and external storage",
+                                Toast.LENGTH_SHORT).show();
                     } catch (IOException e) {
-                        e.printStackTrace();
-                        // Ignore external storage errors on older Android versions
+                        Log.w(TAG, "External about.txt write failed", e);
                     }
                 }
             } else {
@@ -742,14 +930,37 @@ public class ResListActivity extends AppCompatActivity {
             }
 
             BackupSyncManager.exportSnapshot(this);
-            
+
             showAboutDialog();
         } catch (IOException e) {
-            e.printStackTrace();
+            Log.e(TAG, "Failed to save about text", e);
             Toast.makeText(this, "Error saving about text: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
-    
+
+    private String resolveCompactLabel(String itemType, String existingWhat) {
+        if (HoldingsDb.isStockTicker(itemType)) {
+            return "Shares";
+        }
+        String normalizedType = HoldingsDb.normalizeItemType(itemType);
+        if ("Bitcoin".equalsIgnoreCase(normalizedType)
+                || "Ethereum".equalsIgnoreCase(normalizedType)
+                || "Amount".equalsIgnoreCase(existingWhat)) {
+            return "Amount";
+        }
+        if ("Copper".equalsIgnoreCase(normalizedType)
+                || "Platinum".equalsIgnoreCase(normalizedType)
+                || "Palladium".equalsIgnoreCase(normalizedType)
+                || "Lead".equalsIgnoreCase(normalizedType)
+                || "Aluminum".equalsIgnoreCase(normalizedType)
+                || "Nickel".equalsIgnoreCase(normalizedType)
+                || "Zinc".equalsIgnoreCase(normalizedType)
+                || "Units".equalsIgnoreCase(existingWhat)) {
+            return "Units";
+        }
+        return "Total";
+    }
+
     private void saveToInternalStorage(String text) throws IOException {
         FileOutputStream fos = openFileOutput("about.txt", Context.MODE_PRIVATE);
         fos.write(text.getBytes());
@@ -760,6 +971,12 @@ public class ResListActivity extends AppCompatActivity {
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.navigation, menu);
+        MenuItem darkModeItem = menu.findItem(R.id.action_dark_mode);
+        if (darkModeItem != null) {
+            boolean isDarkMode = getSharedPreferences(getString(R.string.app_name), MODE_PRIVATE)
+                    .getBoolean(PREF_DARK_MODE, false);
+            darkModeItem.setChecked(isDarkMode);
+        }
         return true;
     }
 }

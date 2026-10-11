@@ -21,6 +21,7 @@ public class SilverDB extends SQLiteOpenHelper
     public static final String X_TIME = "update_time";
 
     private static final String TAG = "TAG";
+    private static final String INDEX_UPDATE_DATE = "idx_silver_update_date";
 
 
 
@@ -37,6 +38,7 @@ public class SilverDB extends SQLiteOpenHelper
                 X_DATE + " TEXT NOT NULL , " +
                 X_TIME + " TEXT NOT NULL )"
         );
+        ensureDateIndex(db);
     }
 
     @Override
@@ -52,6 +54,7 @@ public class SilverDB extends SQLiteOpenHelper
         Log.d(TAG, "insertData: X_TIME " + time);
 
         SQLiteDatabase db = this.getWritableDatabase();
+        ensureDateIndex(db);
         ContentValues initialValues = new ContentValues();
         initialValues.put(X_S_PRICE, silver);
         initialValues.put(X_G_PRICE, gold);
@@ -76,6 +79,7 @@ public class SilverDB extends SQLiteOpenHelper
         Log.d(TAG, "insertData: X_TIME " + time);
 
         SQLiteDatabase db = this.getWritableDatabase();
+        ensureDateIndex(db);
         ContentValues cv = new ContentValues();
         cv.put(X_S_PRICE, silver);
         cv.put(X_G_PRICE, gold);
@@ -90,22 +94,27 @@ public class SilverDB extends SQLiteOpenHelper
 
     public List<SilverDBModel> getSilverData(String date) {
 
-        String selectQuery = "SELECT  * FROM " + TABLE_NAME+" WHERE " + X_DATE + "='" + date+"'";
-
-//        String selectQuery = "SELECT  * FROM " + TABLE_NAME;
-
         SQLiteDatabase db = this.getReadableDatabase();
+        ensureDateIndex(db);
 
-        Cursor cursor = db.rawQuery(selectQuery, null, null);
+        Cursor cursor = db.query(
+                TABLE_NAME,
+                null,
+                X_DATE + "=?",
+                new String[]{date},
+                null,
+                null,
+                null
+        );
 
         List<SilverDBModel> cartData = new ArrayList<>();
         if (cursor.moveToFirst()) {
             do {
                 SilverDBModel silverDBModel = new SilverDBModel();
-                silverDBModel.setSilver(cursor.getString(cursor.getColumnIndex(SilverDB.X_S_PRICE)));
-                silverDBModel.setGold(cursor.getString(cursor.getColumnIndex(SilverDB.X_G_PRICE)));
-                silverDBModel.setDate(cursor.getString(cursor.getColumnIndex(SilverDB.X_DATE)));
-                silverDBModel.setTime(cursor.getString(cursor.getColumnIndex(SilverDB.X_TIME)));
+                silverDBModel.setSilver(cursor.getString(cursor.getColumnIndexOrThrow(SilverDB.X_S_PRICE)));
+                silverDBModel.setGold(cursor.getString(cursor.getColumnIndexOrThrow(SilverDB.X_G_PRICE)));
+                silverDBModel.setDate(cursor.getString(cursor.getColumnIndexOrThrow(SilverDB.X_DATE)));
+                silverDBModel.setTime(cursor.getString(cursor.getColumnIndexOrThrow(SilverDB.X_TIME)));
                 cartData.add(silverDBModel);
             } while (cursor.moveToNext());
         }
@@ -118,6 +127,9 @@ public class SilverDB extends SQLiteOpenHelper
         return cartData;
     }
 
+    private void ensureDateIndex(SQLiteDatabase db) {
+        db.execSQL("CREATE INDEX IF NOT EXISTS " + INDEX_UPDATE_DATE + " ON " + TABLE_NAME + "(" + X_DATE + ")");
+    }
 
 
 }

@@ -22,7 +22,6 @@ public class SilverTListAdapter extends RecyclerView.Adapter<SilverTListAdapter.
     ResListActivity resListActivity;
     List<SilverT_DBModel> alSilverList;
     View view;
-    String id = "", no = "", weight = "", what = "", total = "";
 
     public SilverTListAdapter(Context mContext, List<SilverT_DBModel> alSilverList, ResListActivity resListActivity) {
 
@@ -39,12 +38,12 @@ public class SilverTListAdapter extends RecyclerView.Adapter<SilverTListAdapter.
     }
 
     @Override
-    public void onBindViewHolder(@NonNull MyHolder holder, final int position) {
-        id = alSilverList.get(position).getX_ID();
-        no = alSilverList.get(position).getX_S_NO();
-        weight = alSilverList.get(position).getX_S_WEIGHT();
-        what = alSilverList.get(position).getX_S_WHAT();
-        total = alSilverList.get(position).getX_S_TOTAL();
+    public void onBindViewHolder(@NonNull MyHolder holder, int position) {
+        final SilverT_DBModel item = alSilverList.get(position);
+        String no = item.getX_S_NO();
+        String weight = item.getX_S_WEIGHT();
+        String what = item.getX_S_WHAT();
+        String total = item.getX_S_TOTAL();
 
         holder.tv_no.setText(no);
         holder.tv_weight.setText(weight);
@@ -54,52 +53,28 @@ public class SilverTListAdapter extends RecyclerView.Adapter<SilverTListAdapter.
         holder.ll_main.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                id = alSilverList.get(position).getX_ID();
-                no = alSilverList.get(position).getX_S_NO();
-                weight = alSilverList.get(position).getX_S_WEIGHT();
-                what = alSilverList.get(position).getX_S_WHAT();
-                total = alSilverList.get(position).getX_S_TOTAL();
-
-                resListActivity.displayPopUp("S", id, no, weight, what, total);
+                openEditor(holder);
             }
         });
 
         holder.tv_no.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                id = alSilverList.get(position).getX_ID();
-                no = alSilverList.get(position).getX_S_NO();
-                weight = alSilverList.get(position).getX_S_WEIGHT();
-                what = alSilverList.get(position).getX_S_WHAT();
-                total = alSilverList.get(position).getX_S_TOTAL();
-
-                resListActivity.displayPopUp("S", id, no, weight, what, total);
+                openEditor(holder);
             }
         });
 
         holder.tv_weight.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                id = alSilverList.get(position).getX_ID();
-                no = alSilverList.get(position).getX_S_NO();
-                weight = alSilverList.get(position).getX_S_WEIGHT();
-                what = alSilverList.get(position).getX_S_WHAT();
-                total = alSilverList.get(position).getX_S_TOTAL();
-
-                resListActivity.displayPopUp("S", id, no, weight, what, total);
+                openEditor(holder);
             }
         });
 
         holder.tv_what.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                id = alSilverList.get(position).getX_ID();
-                no = alSilverList.get(position).getX_S_NO();
-                weight = alSilverList.get(position).getX_S_WEIGHT();
-                what = alSilverList.get(position).getX_S_WHAT();
-                total = alSilverList.get(position).getX_S_TOTAL();
-
-                resListActivity.displayPopUp("S", id, no, weight, what, total);
+                openEditor(holder);
             }
         });
 
@@ -107,15 +82,25 @@ public class SilverTListAdapter extends RecyclerView.Adapter<SilverTListAdapter.
         holder.tv_total.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                id = alSilverList.get(position).getX_ID();
-                no = alSilverList.get(position).getX_S_NO();
-                weight = alSilverList.get(position).getX_S_WEIGHT();
-                what = alSilverList.get(position).getX_S_WHAT();
-                total = alSilverList.get(position).getX_S_WEIGHT();
-
-                resListActivity.displayPopUp("S", id, no, weight, what, total);
+                openEditor(holder);
             }
         });
+    }
+
+    private void openEditor(@NonNull MyHolder holder) {
+        int adapterPosition = holder.getBindingAdapterPosition();
+        if (adapterPosition == RecyclerView.NO_POSITION) {
+            return;
+        }
+        SilverT_DBModel selected = alSilverList.get(adapterPosition);
+        resListActivity.displayPopUp(
+                "S",
+                selected.getX_ID(),
+                selected.getX_S_NO(),
+                selected.getX_S_WEIGHT(),
+                selected.getX_S_WHAT(),
+                selected.getX_S_TOTAL()
+        );
     }
 
     @Override

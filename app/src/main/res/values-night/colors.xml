@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="light_green">#121212</color>
+    <color name="textview_text_color">#F1F3F5</color>
+    <color name="edittext_text_color">#F1F3F5</color>
+    <color name="button_text_color">#F1F3F5</color>
+    <color name="edittext_stroke">#3A3F45</color>
+    <color name="edittext_bg_fill">#24292F</color>
+    <color name="dialog_text_primary">#F1F3F5</color>
+</resources>

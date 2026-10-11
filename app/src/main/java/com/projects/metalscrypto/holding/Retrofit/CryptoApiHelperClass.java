@@ -2,6 +2,7 @@ package com.projects.metalscrypto.holding.Retrofit;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.projects.metalscrypto.holding.BuildConfig;
 
 import java.util.concurrent.TimeUnit;
 
@@ -17,7 +18,7 @@ public class CryptoApiHelperClass {
 
     public static Retrofit getClient() {
         HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
-        logging.setLevel(HttpLoggingInterceptor.Level.BODY);
+        logging.setLevel(BuildConfig.DEBUG ? HttpLoggingInterceptor.Level.BODY : HttpLoggingInterceptor.Level.NONE);
 
         OkHttpClient.Builder httpClient = new OkHttpClient.Builder();
         httpClient.connectTimeout(REQUEST_TIMEOUT, TimeUnit.SECONDS)
@@ -37,4 +38,3 @@ public class CryptoApiHelperClass {
         return retrofit;
     }
 }
-

@@ -24,7 +24,7 @@
 - UI currently displays Silver/Gold/Copper prominently in `activity_main.xml`, but backend supports more types (Platinum, BTC, ETH, etc.).
 
 ## Integration And Platform Notes
-- Pricing API base URL: `https://api.metalpriceapi.com/v1/` in `Retrofit/ApiHelperClass.java`.
+- Pricing API base URL: `https://api.metalcharts.org/` in `Retrofit/ApiHelperClass.java`.
 - API key is currently hardcoded in `MainActivity.getLiveData()`; preserve behavior unless explicitly asked to refactor secrets.
 - Manifest allows cleartext traffic and legacy external storage (`requestLegacyExternalStorage=true`).
 - About text load order in `ResListActivity`: internal file -> external `/SilverHolding/about.txt` -> bundled `assets/about.txt`.
@@ -42,4 +42,3 @@ Set-Location "C:\wrhor\Silver"
 - `HoldingsDb.importLegacyData(...)` is called from both `MainActivity` and `ResListActivity`; it inserts blindly (possible duplicates across launches).
 - `SilverDB.updateData(...)` uses a raw where clause (`X_DATE + "=" + date`) without quotes; changing this can alter offline-cache behavior.
 - Tests are template-level only (`ExampleUnitTest`, `ExampleInstrumentedTest`) and not aligned with app package; do not assume meaningful coverage.
-

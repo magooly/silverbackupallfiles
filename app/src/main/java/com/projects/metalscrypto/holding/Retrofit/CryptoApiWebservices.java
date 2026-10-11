@@ -9,5 +9,7 @@ import retrofit2.http.Query;
 public interface CryptoApiWebservices {
     @GET("api/v3/simple/price")
     Call<JsonObject> getCryptoPrices(@Query("ids") String ids, @Query("vs_currencies") String vsCurrencies);
-}
 
+    @GET("api/v3/search")
+    Call<JsonObject> searchCrypto(@Query("query") String query);
+}

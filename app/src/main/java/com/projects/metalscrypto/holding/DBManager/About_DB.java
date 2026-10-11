@@ -67,9 +67,9 @@ public class About_DB extends SQLiteOpenHelper
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues cv = new ContentValues();
         cv.put(X_ABOUT, about);
-        db.update(TABLE_NAME, cv, X_ID + "=" + id, null);
-
-        return true;
+        int updatedRows = db.update(TABLE_NAME, cv, X_ID + "=?", new String[] { id });
+        db.close();
+        return updatedRows > 0;
 
     }
 
@@ -84,8 +84,8 @@ public class About_DB extends SQLiteOpenHelper
         if (cursor.moveToFirst()) {
             do {
                 AboutModel silverDBModel = new AboutModel();
-                silverDBModel.setId(cursor.getString(cursor.getColumnIndex(About_DB.X_ID)));
-                silverDBModel.setAbout_text(cursor.getString(cursor.getColumnIndex(About_DB.X_ABOUT)));
+                silverDBModel.setId(cursor.getString(cursor.getColumnIndexOrThrow(About_DB.X_ID)));
+                silverDBModel.setAbout_text(cursor.getString(cursor.getColumnIndexOrThrow(About_DB.X_ABOUT)));
 
                 cartData.add(silverDBModel);
             } while (cursor.moveToNext());
@@ -102,19 +102,17 @@ public class About_DB extends SQLiteOpenHelper
     public void deleteCartDB()
     {
         SQLiteDatabase db = this.getWritableDatabase();
-        db.execSQL("delete from " + TABLE_NAME);
+        db.delete(TABLE_NAME, null, null);
+        db.close();
     }
 
     public Cursor CheckID(String id) {
-        SQLiteDatabase db = this.getWritableDatabase();
-        String query = "SELECT * FROM " + TABLE_NAME + "WHERE" + X_ID + "=" + id;
-        Cursor cursor = db.rawQuery(query, null);
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.query(TABLE_NAME, null, X_ID + "=?", new String[]{id}, null, null, null);
         if (cursor != null) {
             cursor.moveToFirst();
         }
-        cursor.getCount();
-
-        Log.d(TAG, "CheckID: count  "+cursor.getCount());
+        Log.d(TAG, "CheckID: count  " + (cursor == null ? 0 : cursor.getCount()));
         return cursor;
     }
 

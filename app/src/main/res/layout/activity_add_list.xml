@@ -41,7 +41,7 @@
                 android:layout_gravity="center"
                 android:layout_weight="1"
                 android:text="@string/item_type"
-                android:textColor="@color/black"
+                android:textColor="@color/textview_text_color"
                 android:textSize="16sp" />
 
             <EditText
@@ -57,6 +57,42 @@
                 android:textSize="@dimen/font_14" />
 
         </LinearLayout>
+
+        <RadioGroup
+            android:id="@+id/rg_item_category"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="@dimen/marginplus2"
+            android:layout_marginBottom="4dp"
+            android:orientation="horizontal">
+
+            <RadioButton
+                android:id="@+id/rb_category_metals"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/category_metals" />
+
+            <RadioButton
+                android:id="@+id/rb_category_crypto"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:text="@string/category_crypto" />
+
+            <RadioButton
+                android:id="@+id/rb_category_stocks"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:text="@string/category_stocks" />
+
+            <RadioButton
+                android:id="@+id/rb_category_other"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:text="@string/category_other" />
+        </RadioGroup>
 
         <TextView
             android:layout_width="match_parent"
@@ -88,6 +124,7 @@
                 android:orientation="horizontal">
 
                 <TextView
+                    android:id="@+id/tv_no_label"
                     android:layout_width="0dp"
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
@@ -136,7 +173,7 @@
                 android:orientation="horizontal">
 
                 <TextView
-                    android:id="@+id/tv_total_label"
+                    android:id="@+id/tv_weight_label"
                     android:layout_width="0dp"
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
@@ -184,6 +221,7 @@
                 android:orientation="horizontal">
 
                 <TextView
+                    android:id="@+id/tv_what_label"
                     android:layout_width="0dp"
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
@@ -230,6 +268,7 @@
                 android:orientation="horizontal">
 
                 <TextView
+                    android:id="@+id/tv_total_label"
                     android:layout_width="0dp"
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
@@ -237,7 +276,7 @@
                     android:layout_marginHorizontal="@dimen/marginplus1"
                     android:paddingHorizontal="@dimen/marginplus1"
                     android:orientation="horizontal"
-                    android:text="@string/total_oz"
+                    android:text="@string/total_units_oz_label"
                     android:textColor="@color/textview_text_color"
                     android:textSize="@dimen/font_14"
                     android:textStyle="bold" />
