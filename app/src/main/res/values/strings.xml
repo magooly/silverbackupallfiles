@@ -116,4 +116,5 @@
     <string name="total_value_all_items">Total Value all Items</string>
     <string name="version_display_format">Version %1$s</string>
     <string name="version_placeholder">Version 1.0.0</string>
+    <string name="action_version_history">Version History</string>
 </resources>

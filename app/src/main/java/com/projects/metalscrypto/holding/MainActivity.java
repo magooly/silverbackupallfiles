@@ -41,6 +41,7 @@ import com.projects.metalscrypto.holding.DBManager.HoldingsDb;
 import com.projects.metalscrypto.holding.DBManager.SilverDB;
 import com.projects.metalscrypto.holding.DBManager.SilverDBModel;
 import com.projects.metalscrypto.holding.DBManager.SilverT_DB;
+import com.projects.metalscrypto.holding.DBManager.VersionManager;
 import com.projects.metalscrypto.holding.Retrofit.CryptoApiHelperClass;
 import com.projects.metalscrypto.holding.Retrofit.CryptoApiWebservices;
 import com.projects.metalscrypto.holding.Retrofit.ApiHelperClass;
@@ -165,6 +166,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         shouldNavigateToResList = false;
 
         setupViews();
+        VersionManager versionManager = new VersionManager(this);
+        versionManager.checkAndUpdateVersion();
         migrateLegacyHoldings();
         ioExecutor.execute(() -> {
             BackupSyncManager.importAndMergeOnStart(this);
@@ -1098,6 +1101,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             showAvailableBackupsForRestore();
             return true;
         }
+        if (id == R.id.action_version_history) {
+            showVersionHistory();
+            return true;
+        }
         if (id == R.id.action_dark_mode) {
             boolean isChecked = !item.isChecked();
             item.setChecked(isChecked);
@@ -1434,5 +1441,27 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             return false;
         }
         return !isDestroyed();
+    }
+
+    private void showVersionHistory() {
+        VersionManager versionManager = new VersionManager(this);
+        java.util.List<VersionManager.VersionEntry> versions = versionManager.getAllVersions();
+
+        if (versions.isEmpty()) {
+            Toast.makeText(this, "No version history available", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        StringBuilder historyText = new StringBuilder();
+        for (VersionManager.VersionEntry entry : versions) {
+            historyText.append(entry.toString()).append("\n");
+        }
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("Version History")
+                .setMessage(historyText.toString().trim())
+                .setPositiveButton("OK", null)
+                .create();
+        dialog.show();
     }
 }

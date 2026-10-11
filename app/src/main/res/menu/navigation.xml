@@ -17,8 +17,13 @@
         android:title="@string/action_restore"
         app:showAsAction="never" />
     <item
-        android:id="@+id/action_dark_mode"
+        android:id="@+id/action_version_history"
         android:orderInCategory="103"
+        android:title="@string/action_version_history"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_dark_mode"
+        android:orderInCategory="104"
         android:checkable="true"
         android:title="@string/action_dark_mode"
         app:showAsAction="never" />
