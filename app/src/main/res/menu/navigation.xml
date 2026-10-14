@@ -2,28 +2,43 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
-        android:id="@+id/action_about"
+        android:id="@+id/action_update_holding"
         android:orderInCategory="100"
+        android:title="@string/update_holding"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_get_latest_prices"
+        android:orderInCategory="101"
+        android:title="@string/get_latest_prices"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_display_currency"
+        android:orderInCategory="102"
+        android:title="@string/action_display_currency"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_about"
+        android:orderInCategory="103"
         android:title="@string/action_about"
         app:showAsAction="never" />
     <item
         android:id="@+id/action_backup"
-        android:orderInCategory="101"
+        android:orderInCategory="104"
         android:title="@string/action_backup"
         app:showAsAction="never" />
     <item
         android:id="@+id/action_restore"
-        android:orderInCategory="102"
+        android:orderInCategory="105"
         android:title="@string/action_restore"
         app:showAsAction="never" />
     <item
         android:id="@+id/action_version_history"
-        android:orderInCategory="103"
+        android:orderInCategory="106"
         android:title="@string/action_version_history"
         app:showAsAction="never" />
     <item
         android:id="@+id/action_dark_mode"
-        android:orderInCategory="104"
+        android:orderInCategory="107"
         android:checkable="true"
         android:title="@string/action_dark_mode"
         app:showAsAction="never" />

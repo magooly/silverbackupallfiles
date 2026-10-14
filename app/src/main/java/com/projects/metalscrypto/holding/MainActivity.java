@@ -10,6 +10,7 @@ import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.SystemClock;
 import android.text.InputType;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -24,11 +25,13 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.appcompat.widget.Toolbar;
+import androidx.appcompat.widget.AppCompatCheckBox;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
@@ -53,6 +56,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -73,7 +77,7 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-public class MainActivity extends AppCompatActivity implements View.OnClickListener {
+public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "TAG";
     private static final int REQUEST_ID_MULTIPLE_PERMISSIONS = 101;
@@ -81,8 +85,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private static final String TYPE_GOLD = "Gold";
     private static final String API_ERROR_LOG_FILE = "api_errors.txt";
     private static final String PREF_DARK_MODE = "pref_dark_mode";
+    private static final long BACK_EXIT_INTERVAL_MS = 2000L;
     private static final String PREF_PRICE_NOTICE_ACTIVE = "pref_price_notice_active";
     private static final String PREF_PRICE_NOTICE_DISMISSED = "pref_price_notice_dismissed";
+    private static final String PREF_DISPLAY_CURRENCY = "pref_display_currency";
+    private static final String PREF_WHOLE_DOLLARS_ONLY = "pref_whole_dollars_only";
+    private static final String PREF_FX_UPDATED_AT = "pref_fx_updated_at";
+    private static final String PREF_FX_RATE_PREFIX = "pref_fx_rate_usd_";
+    private static final long FX_RATE_REFRESH_INTERVAL_MS = 24L * 60L * 60L * 1000L;
+    private static final String[] SUPPORTED_CURRENCIES = { "AUD", "NZD", "USD", "GBP", "EUR", "CNY", "JPY" };
     private static final String PREF_STOCK_PRICE_PREFIX = "stock_price_";
     private static final String PREF_CRYPTO_PRICE_PREFIX = "crypto_price_";
     private static final String PREF_CRYPTO_ID_PREFIX = "crypto_id_";
@@ -119,7 +130,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private EditText et_slv_slv_price_amount, et_slv_gld_amount;
     private TextView tv_hld_slv_price_amount, tv_hld_gld_amount, tv_hld_ttl_amount, tvDate, tvPriceHeading,
             tvAppVersion, tvPriceNotice;
-    private Button btn_holding_update, btn_silver_update, btnClearPriceNotice;
+    private Button btnClearPriceNotice;
     private String slv_gld_price, slv_slv_price, slv_cpr_price, time, date;
 
     private SilverDB silverDB;
@@ -146,29 +157,60 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private final List<HoldingSummary> dynamicHoldings = new ArrayList<>();
     private final Map<String, Float> liveStockPrices = new HashMap<>();
     private final Map<String, Float> cachedStockPrices = new HashMap<>();
+    private final Set<String> requestedStockTickers = new HashSet<>();
     private final Map<String, Float> liveCryptoPrices = new HashMap<>();
     private final Map<String, Float> cachedCryptoPrices = new HashMap<>();
+    private final Map<String, Double> exchangeRatesFromUsd = new HashMap<>();
     private final Set<String> promptedCryptoTypes = new HashSet<>();
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
+    private String displayCurrency = "AUD";
+    private boolean exchangeRateRequestInProgress;
+    private long lastExitBackAt = -1L;
+    private Toast exitBackToast;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         preferences = getSharedPreferences(getString(R.string.app_name), MODE_PRIVATE);
+        displayCurrency = normalizeDisplayCurrency(preferences.getString(PREF_DISPLAY_CURRENCY, "AUD"));
+        loadCachedExchangeRates();
         boolean darkMode = preferences.getBoolean(PREF_DARK_MODE, false);
         AppCompatDelegate
                 .setDefaultNightMode(darkMode ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                long now = SystemClock.elapsedRealtime();
+                if (lastExitBackAt >= 0 && now - lastExitBackAt < BACK_EXIT_INTERVAL_MS) {
+                    if (exitBackToast != null) {
+                        exitBackToast.cancel();
+                    }
+                    setEnabled(false);
+                    getOnBackPressedDispatcher().onBackPressed();
+                    return;
+                }
+                lastExitBackAt = now;
+                if (exitBackToast != null) {
+                    exitBackToast.cancel();
+                }
+                exitBackToast = Toast.makeText(MainActivity.this, R.string.press_back_again_to_exit,
+                        Toast.LENGTH_SHORT);
+                exitBackToast.show();
+            }
+        });
         date = new SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(new Date());
 
         editor = preferences.edit();
         shouldNavigateToResList = false;
 
         setupViews();
+        updateCurrencyLabels();
         VersionManager versionManager = new VersionManager(this);
         versionManager.checkAndUpdateVersion();
         migrateLegacyHoldings();
+        refreshExchangeRatesIfNeeded();
         ioExecutor.execute(() -> {
             BackupSyncManager.importAndMergeOnStart(this);
             BackupSyncManager.exportSnapshot(this);
@@ -180,11 +222,36 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         checkAndRequestPermissions();
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        refreshHoldingSummaries();
+        ioExecutor.execute(() -> {
+            BackupSyncManager.importAndMergeOnStart(this);
+            BackupSyncManager.exportSnapshot(this);
+            runOnUiThread(() -> {
+                refreshHoldingSummaries();
+                getAPIdata();
+            });
+        });
+    }
+
+    @Override
+    protected void onPause() {
+        lastExitBackAt = -1L;
+        if (exitBackToast != null) {
+            exitBackToast.cancel();
+            exitBackToast = null;
+        }
+        super.onPause();
+    }
+
     private void getLiveData() {
         if (!CustomNetwork.isNetworkAvailable(mContext)) {
             return;
         }
 
+        refreshExchangeRatesIfNeeded();
         refreshHoldingSummaries();
         Set<String> trackedMetalTypes = getTrackedMetalTypes();
         Set<String> trackedCryptoTypes = getTrackedCryptoTypes();
@@ -202,7 +269,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         String apiKey = BuildConfig.METALCHARTS_API_KEY == null ? "" : BuildConfig.METALCHARTS_API_KEY.trim();
         if (apiKey.isEmpty()) {
             if (!hasLoggedMissingMetalsApiKey) {
-                appendApiErrorLog("Metals API key missing: set METALCHARTS_API_KEY in local.properties or environment.");
+                appendApiErrorLog(
+                        "Metals API key missing: set METALCHARTS_API_KEY in local.properties or environment.");
                 hasLoggedMissingMetalsApiKey = true;
             }
             showCachedPricesIndicator();
@@ -260,7 +328,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                             insertdatainDB();
                         }
                     } else {
-                        appendApiErrorLog("Live API unsuccessful. HTTP=" + response.code() + ", message=missing tracked metal prices");
+                        appendApiErrorLog("Live API unsuccessful. HTTP=" + response.code()
+                                + ", message=missing tracked metal prices");
                         Log.w(TAG, "Live response missing tracked metal prices, using cached prices");
                         showCachedPricesIndicator();
                     }
@@ -433,6 +502,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         StockApiWebservices stockApiWebservices = StockApiHelperClass.getClient().create(StockApiWebservices.class);
         String stockApiKey = BuildConfig.EODHD_API_KEY.trim();
+        requestedStockTickers.addAll(stockTickers);
         for (String ticker : stockTickers) {
             String asxSymbol = HoldingsDb.toAsxQuoteSymbol(ticker);
             fetchStockPrice(stockApiWebservices, stockApiKey, ticker, asxSymbol, true);
@@ -736,8 +806,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         llPriceNotice = findViewById(R.id.ll_price_notice);
         tvPriceNotice = findViewById(R.id.tv_price_notice);
         btnClearPriceNotice = findViewById(R.id.btn_clear_price_notice);
-        btn_holding_update = findViewById(R.id.btn_holding_update);
-        btn_silver_update = findViewById(R.id.btn_silver_update);
         tvDate = findViewById(R.id.tvDate);
         tvAppVersion = findViewById(R.id.tv_app_version);
 
@@ -746,8 +814,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
 
         updateThemeColors();
-        btn_holding_update.setOnClickListener(this);
-        btn_silver_update.setOnClickListener(this);
         if (btnClearPriceNotice != null) {
             btnClearPriceNotice.setOnClickListener(v -> dismissPriceNotice());
         }
@@ -794,33 +860,52 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void updateUI() {
-        float current_silver_price = d_silver_amt > 0 ? d_silver_amt : lv_slv_amt;
-        float current_gold_price = d_gold_amt > 0 ? d_gold_amt : lv_gold_amt;
-        DecimalFormat priceFormat = new DecimalFormat("#,##0");
+        float current_silver_price = lv_slv_amt > 0 ? lv_slv_amt : d_silver_amt;
+        float current_gold_price = lv_gold_amt > 0 ? lv_gold_amt : d_gold_amt;
+        DecimalFormat priceFormat = new DecimalFormat(
+                preferences.getBoolean(PREF_WHOLE_DOLLARS_ONLY, false) ? "#,##0" : "#,##0.00");
+        priceFormat.setRoundingMode(RoundingMode.HALF_UP);
+        updateCurrencyLabels();
 
         // Silver and Gold remain fixed rows on the first screen.
-        et_slv_slv_price_amount.setText(priceFormat.format(current_silver_price));
-        et_slv_gld_amount.setText(priceFormat.format(current_gold_price));
+        et_slv_slv_price_amount.setText(formatCurrencyValue(
+                CurrencyConverter.convert(current_silver_price, "USD", displayCurrency, exchangeRatesFromUsd),
+                priceFormat));
+        et_slv_gld_amount.setText(formatCurrencyValue(
+                CurrencyConverter.convert(current_gold_price, "USD", displayCurrency, exchangeRatesFromUsd),
+                priceFormat));
 
-        float silverHolding = silver_total * current_silver_price;
-        float goldHolding = gold_total * current_gold_price;
-        float totalHolding = silverHolding + goldHolding;
+        Double silverHoldingAud = CurrencyConverter.convertHoldingValue(
+                silver_total, current_silver_price, "USD", "AUD", exchangeRatesFromUsd);
+        Double goldHoldingAud = CurrencyConverter.convertHoldingValue(
+                gold_total, current_gold_price, "USD", "AUD", exchangeRatesFromUsd);
+        boolean totalAvailable = silverHoldingAud != null && goldHoldingAud != null;
+        double totalHoldingAud = (silverHoldingAud == null ? 0 : silverHoldingAud)
+                + (goldHoldingAud == null ? 0 : goldHoldingAud);
 
         for (HoldingSummary summary : dynamicHoldings) {
             if (TYPE_SILVER.equalsIgnoreCase(summary.itemType) || TYPE_GOLD.equalsIgnoreCase(summary.itemType)) {
                 continue;
             }
-            totalHolding += getHoldingValue(summary);
+            Double holdingAud = getHoldingValueInAud(summary);
+            if (holdingAud == null) {
+                totalAvailable = false;
+            } else {
+                totalHoldingAud += holdingAud;
+            }
         }
 
-        tv_hld_slv_price_amount.setText(priceFormat.format(silverHolding));
-        tv_hld_gld_amount.setText(priceFormat.format(goldHolding));
+        tv_hld_slv_price_amount.setText(formatCurrencyValue(convertAudToDisplay(silverHoldingAud), priceFormat));
+        tv_hld_gld_amount.setText(formatCurrencyValue(convertAudToDisplay(goldHoldingAud), priceFormat));
         renderDynamicHoldingRows(priceFormat);
-        tv_hld_ttl_amount.setText(priceFormat.format(totalHolding));
+        Double totalDisplay = totalAvailable
+                ? CurrencyConverter.convert(totalHoldingAud, "AUD", displayCurrency, exchangeRatesFromUsd)
+                : null;
+        tv_hld_ttl_amount.setText(formatCurrencyValue(totalDisplay, priceFormat));
         updatePriceNotice(current_silver_price, current_gold_price);
 
-        if (lv_slv_amt > 0) {
-            generateData(priceFormat.format(totalHolding));
+        if (lv_slv_amt > 0 && totalAvailable) {
+            generateData(new DecimalFormat("#,##0.00").format(totalHoldingAud));
         }
     }
 
@@ -828,13 +913,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         llDynamicHoldings.removeAllViews();
         LayoutInflater inflater = LayoutInflater.from(this);
         for (HoldingSummary summary : dynamicHoldings) {
-            float holdingValue = getHoldingValue(summary);
             View row = inflater.inflate(R.layout.view_main_dynamic_holding_row, llDynamicHoldings, false);
             TextView title = row.findViewById(R.id.tv_dynamic_type);
             TextView amount = row.findViewById(R.id.tv_dynamic_amount);
+            TextView currencySymbol = row.findViewById(R.id.tv_dynamic_currency_symbol);
+            TextView currencyCode = row.findViewById(R.id.tv_dynamic_currency_code);
+            Double holdingAud = getHoldingValueInAud(summary);
 
             title.setText(summary.itemType);
-            amount.setText(formatter.format(holdingValue));
+            amount.setText(formatCurrencyValue(convertAudToDisplay(holdingAud), formatter));
+            currencySymbol.setText(currencySymbol(displayCurrency));
+            currencyCode.setText(displayCurrency);
             if (AppCompatDelegate.getDefaultNightMode() == AppCompatDelegate.MODE_NIGHT_YES) {
                 title.setTextColor(Color.parseColor("#EFF2F5"));
                 amount.setTextColor(Color.parseColor("#EFF2F5"));
@@ -847,16 +936,27 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
-    private float getHoldingValue(HoldingSummary summary) {
+    private Double getHoldingValueInAud(HoldingSummary summary) {
         float currentPrice = getCurrentPriceByType(summary.itemType);
-        if (isApiLookupType(summary.itemType) && currentPrice > 0) {
-            return summary.totalUnits * currentPrice;
-        }
         if (isApiLookupType(summary.itemType)) {
-            return 0;
+            return CurrencyConverter.convertHoldingValue(
+                    summary.totalUnits,
+                    currentPrice,
+                    getPriceCurrency(summary.itemType),
+                    "AUD",
+                    exchangeRatesFromUsd);
         }
-        // For custom/non-API items, screen 2 already stores calculated total value.
-        return summary.totalUnits;
+        return (double) summary.totalUnits;
+    }
+
+    private String getPriceCurrency(String itemType) {
+        return isMetalType(HoldingsDb.normalizeItemType(itemType)) ? "USD" : "AUD";
+    }
+
+    private Double convertAudToDisplay(Double amountAud) {
+        return amountAud == null
+                ? null
+                : CurrencyConverter.convert(amountAud, "AUD", displayCurrency, exchangeRatesFromUsd);
     }
 
     private void updatePriceNotice(float currentSilverPrice, float currentGoldPrice) {
@@ -934,15 +1034,22 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         String normalizedType = HoldingsDb.normalizeItemType(itemType);
         return isMetalType(normalizedType)
                 || isCryptoLookupType(normalizedType)
-                || HoldingsDb.isStockTicker(normalizedType);
+                || isStockLookupType(normalizedType);
+    }
+
+    private boolean isStockLookupType(String itemType) {
+        String ticker = HoldingsDb.normalizeStockTickerInput(itemType);
+        return HoldingsDb.isStockTicker(itemType)
+                || liveStockPrices.containsKey(ticker)
+                || cachedStockPrices.containsKey(ticker);
     }
 
     private float getCurrentPriceByType(String itemType) {
         String normalizedType = HoldingsDb.normalizeItemType(itemType);
         if (TYPE_SILVER.equalsIgnoreCase(normalizedType))
-            return d_silver_amt > 0 ? d_silver_amt : lv_slv_amt;
+            return lv_slv_amt > 0 ? lv_slv_amt : d_silver_amt;
         if (TYPE_GOLD.equalsIgnoreCase(normalizedType))
-            return d_gold_amt > 0 ? d_gold_amt : lv_gold_amt;
+            return lv_gold_amt > 0 ? lv_gold_amt : d_gold_amt;
         if ("Copper".equalsIgnoreCase(normalizedType))
             return d_copper_amt > 0 ? d_copper_amt : lv_cpr_amt;
         if ("Platinum".equalsIgnoreCase(normalizedType))
@@ -969,12 +1076,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             Float cachedPrice = cachedCryptoPrices.get(normalizedType);
             return cachedPrice != null ? cachedPrice : 0;
         }
-        if (HoldingsDb.isStockTicker(normalizedType)) {
-            Float livePrice = liveStockPrices.get(normalizedType);
+        if (isStockLookupType(normalizedType)) {
+            String ticker = HoldingsDb.normalizeStockTickerInput(normalizedType);
+            Float livePrice = liveStockPrices.get(ticker);
             if (livePrice != null && livePrice > 0) {
                 return livePrice;
             }
-            Float cachedPrice = cachedStockPrices.get(normalizedType);
+            Float cachedPrice = cachedStockPrices.get(ticker);
             return cachedPrice != null ? cachedPrice : 0;
         }
         return 0;
@@ -1039,14 +1147,18 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         // Auto-refresh only once per app opening; manual refresh button remains
         // available.
         if (!hasTriggeredInitialLiveRefresh) {
-            hasTriggeredInitialLiveRefresh = true;
             if (CustomNetwork.isNetworkAvailable(mContext)) {
+                hasTriggeredInitialLiveRefresh = true;
                 Log.d(TAG, "Triggering initial live data refresh");
                 getLiveData();
             } else if (!hasOfflineData) {
                 showCachedPricesIndicator();
                 Log.d(TAG, "Offline and no cached data available");
             }
+        } else if (CustomNetwork.isNetworkAvailable(mContext)) {
+            Set<String> newStockTickers = getTrackedStockTickers();
+            newStockTickers.removeAll(requestedStockTickers);
+            getStockLiveData(newStockTickers);
         }
     }
 
@@ -1067,16 +1179,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     @Override
-    public void onClick(View v) {
-        int id = v.getId();
-        if (id == R.id.btn_silver_update) {
-            getLiveData();
-        } else if (id == R.id.btn_holding_update) {
-            startActivity(new Intent(mContext, ResListActivity.class));
-        }
-    }
-
-    @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.navigation, menu);
         MenuItem darkModeItem = menu.findItem(R.id.action_dark_mode);
@@ -1089,6 +1191,18 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
+        if (id == R.id.action_update_holding) {
+            startActivity(new Intent(mContext, ResListActivity.class));
+            return true;
+        }
+        if (id == R.id.action_get_latest_prices) {
+            getLiveData();
+            return true;
+        }
+        if (id == R.id.action_display_currency) {
+            showDisplayCurrencyPicker();
+            return true;
+        }
         if (id == R.id.action_about) {
             startActivity(new Intent(mContext, ResListActivity.class));
             return true;
@@ -1115,6 +1229,204 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private String normalizeDisplayCurrency(String currency) {
+        if (currency != null) {
+            for (String supportedCurrency : SUPPORTED_CURRENCIES) {
+                if (supportedCurrency.equalsIgnoreCase(currency.trim())) {
+                    return supportedCurrency;
+                }
+            }
+        }
+        return "AUD";
+    }
+
+    private void showDisplayCurrencyPicker() {
+        int selectedIndex = 0;
+        for (int i = 0; i < SUPPORTED_CURRENCIES.length; i++) {
+            if (SUPPORTED_CURRENCIES[i].equals(displayCurrency)) {
+                selectedIndex = i;
+                break;
+            }
+        }
+
+        AppCompatCheckBox wholeDollarsOnly = new AppCompatCheckBox(this);
+        wholeDollarsOnly.setText(R.string.whole_dollars_only);
+        wholeDollarsOnly.setChecked(preferences.getBoolean(PREF_WHOLE_DOLLARS_ONLY, false));
+        wholeDollarsOnly.setOnCheckedChangeListener((button, checked) -> {
+            preferences.edit().putBoolean(PREF_WHOLE_DOLLARS_ONLY, checked).apply();
+            updateUI();
+        });
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.select_display_currency)
+                .setView(wholeDollarsOnly)
+                .setSingleChoiceItems(R.array.display_currency_options, selectedIndex, (dialog, which) -> {
+                    if (which >= 0 && which < SUPPORTED_CURRENCIES.length) {
+                        displayCurrency = SUPPORTED_CURRENCIES[which];
+                        preferences.edit().putString(PREF_DISPLAY_CURRENCY, displayCurrency).apply();
+                        updateUI();
+                        refreshExchangeRatesIfNeeded();
+                    }
+                })
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
+    }
+
+    private void loadCachedExchangeRates() {
+        exchangeRatesFromUsd.clear();
+        exchangeRatesFromUsd.put("USD", 1.0);
+        for (String currency : SUPPORTED_CURRENCIES) {
+            if ("USD".equals(currency)) {
+                continue;
+            }
+            String storedRate = preferences.getString(PREF_FX_RATE_PREFIX + currency, "");
+            try {
+                double rate = Double.parseDouble(storedRate);
+                if (rate > 0) {
+                    exchangeRatesFromUsd.put(currency, rate);
+                }
+            } catch (NumberFormatException ignored) {
+                exchangeRatesFromUsd.remove(currency);
+            }
+        }
+    }
+
+    private boolean hasCompleteExchangeRates() {
+        for (String currency : SUPPORTED_CURRENCIES) {
+            if (!exchangeRatesFromUsd.containsKey(currency)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void refreshExchangeRatesIfNeeded() {
+        long updatedAt = preferences.getLong(PREF_FX_UPDATED_AT, 0);
+        if (exchangeRateRequestInProgress
+                || (hasCompleteExchangeRates() && System.currentTimeMillis() - updatedAt < FX_RATE_REFRESH_INTERVAL_MS)
+                || !CustomNetwork.isNetworkAvailable(mContext)) {
+            return;
+        }
+
+        String apiKey = BuildConfig.METALCHARTS_API_KEY == null ? "" : BuildConfig.METALCHARTS_API_KEY.trim();
+        if (apiKey.isEmpty()) {
+            appendApiErrorLog("FX API key missing: set METALCHARTS_API_KEY in local.properties or environment.");
+            return;
+        }
+
+        exchangeRateRequestInProgress = true;
+        ApiWebservices apiWebservices = ApiHelperClass.getClient().create(ApiWebservices.class);
+        Call<JsonObject> call = apiWebservices.getCurrencyRates("Bearer " + apiKey);
+        call.enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(@NonNull Call<JsonObject> call, @NonNull Response<JsonObject> response) {
+                exchangeRateRequestInProgress = false;
+                if (!isUiAlive()) {
+                    return;
+                }
+                if (!response.isSuccessful() || response.body() == null
+                        || !response.body().has("base")
+                        || !"USD".equalsIgnoreCase(response.body().get("base").getAsString())
+                        || !response.body().has("rates")
+                        || !response.body().get("rates").isJsonObject()) {
+                    appendApiErrorLog("FX API response unsuccessful or did not use USD as its base.");
+                    return;
+                }
+
+                JsonObject responseRates = response.body().getAsJsonObject("rates");
+                Map<String, Double> updatedRates = new HashMap<>();
+                updatedRates.put("USD", 1.0);
+                try {
+                    for (String currency : SUPPORTED_CURRENCIES) {
+                        if ("USD".equals(currency)) {
+                            continue;
+                        }
+                        if (!responseRates.has(currency)) {
+                            throw new IllegalStateException("Missing rate for " + currency);
+                        }
+                        double rate = responseRates.get(currency).getAsDouble();
+                        if (rate <= 0) {
+                            throw new IllegalStateException("Invalid rate for " + currency);
+                        }
+                        updatedRates.put(currency, rate);
+                    }
+                } catch (Exception e) {
+                    appendApiErrorLog("FX API response missing a supported currency rate: " + e.getMessage());
+                    return;
+                }
+
+                exchangeRatesFromUsd.clear();
+                exchangeRatesFromUsd.putAll(updatedRates);
+                SharedPreferences.Editor rateEditor = preferences.edit()
+                        .putLong(PREF_FX_UPDATED_AT, System.currentTimeMillis());
+                for (Map.Entry<String, Double> entry : updatedRates.entrySet()) {
+                    rateEditor.putString(PREF_FX_RATE_PREFIX + entry.getKey(), String.valueOf(entry.getValue()));
+                }
+                rateEditor.apply();
+                updateUI();
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<JsonObject> call, @NonNull Throwable throwable) {
+                exchangeRateRequestInProgress = false;
+                if (isUiAlive()) {
+                    appendApiErrorLog("FX API request failed: " + throwable.getMessage());
+                }
+            }
+        });
+    }
+
+    private String currencySymbol(String currency) {
+        switch (currency) {
+            case "GBP":
+                return "\u00A3";
+            case "EUR":
+                return "\u20AC";
+            case "CNY":
+                return "CN\u00A5";
+            case "JPY":
+                return "\u00A5";
+            default:
+                return "$";
+        }
+    }
+
+    private void updateCurrencyLabels() {
+        int[] symbolIds = {
+                R.id.tv_currency_symbol_silver_spot,
+                R.id.tv_currency_symbol_gold_spot,
+                R.id.tv_currency_symbol_silver_holding,
+                R.id.tv_currency_symbol_gold_holding,
+                R.id.tv_currency_symbol_copper_holding,
+                R.id.tv_currency_symbol_total
+        };
+        int[] codeIds = {
+                R.id.tv_currency_code_silver_spot,
+                R.id.tv_currency_code_gold_spot,
+                R.id.tv_currency_code_silver_holding,
+                R.id.tv_currency_code_gold_holding,
+                R.id.tv_currency_code_copper_holding,
+                R.id.tv_currency_code_total
+        };
+        String symbol = currencySymbol(displayCurrency);
+        for (int symbolId : symbolIds) {
+            TextView label = findViewById(symbolId);
+            if (label != null) {
+                label.setText(symbol);
+            }
+        }
+        for (int codeId : codeIds) {
+            TextView label = findViewById(codeId);
+            if (label != null) {
+                label.setText(displayCurrency);
+            }
+        }
+    }
+
+    private String formatCurrencyValue(Double amount, DecimalFormat formatter) {
+        return amount == null ? getString(R.string.currency_value_unavailable) : formatter.format(amount);
     }
 
     private void promptForBackupFileName(boolean restore) {
@@ -1181,9 +1493,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void showRestoreModeDialog(String backupFileName) {
         new AlertDialog.Builder(this)
                 .setTitle(R.string.restore_mode_title)
-                .setItems(new CharSequence[] { getString(R.string.restore_mode_merge), getString(R.string.restore_mode_replace) },
+                .setItems(
+                        new CharSequence[] { getString(R.string.restore_mode_merge),
+                                getString(R.string.restore_mode_replace) },
                         (dialog, which) -> restoreBackupFile(backupFileName,
-                                which == 1 ? BackupSyncManager.RestoreMode.REPLACE : BackupSyncManager.RestoreMode.MERGE))
+                                which == 1 ? BackupSyncManager.RestoreMode.REPLACE
+                                        : BackupSyncManager.RestoreMode.MERGE))
                 .setNegativeButton(R.string.cancel, null)
                 .show();
     }
@@ -1194,10 +1509,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             return;
         }
         ioExecutor.execute(() -> {
-            BackupSyncManager.BackupResult restoreResult = BackupSyncManager.restoreNowResult(this, backupFileName, mode);
+            BackupSyncManager.BackupResult restoreResult = BackupSyncManager.restoreNowResult(this, backupFileName,
+                    mode);
             runOnUiThread(() -> {
                 if (!restoreResult.isSuccess()) {
-                    Toast.makeText(this, getString(R.string.restore_failed, restoreResult.getMessage()), Toast.LENGTH_LONG)
+                    Toast.makeText(this, getString(R.string.restore_failed, restoreResult.getMessage()),
+                            Toast.LENGTH_LONG)
                             .show();
                     return;
                 }
@@ -1325,6 +1642,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private Set<String> getTrackedMetalTypes() {
         Set<String> metalTypes = new LinkedHashSet<>();
+        metalTypes.add(TYPE_GOLD);
+        metalTypes.add(TYPE_SILVER);
         for (HoldingItem item : holdingsDb.getAllItems()) {
             String normalizedType = HoldingsDb.normalizeItemType(item.getItemType());
             if (isMetalType(normalizedType)) {
@@ -1354,8 +1673,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         Set<String> stockTickers = new LinkedHashSet<>();
         for (HoldingItem item : holdingsDb.getAllItems()) {
             String normalizedType = HoldingsDb.normalizeItemType(item.getItemType());
-            if (HoldingsDb.isStockTicker(normalizedType)) {
-                stockTickers.add(normalizedType);
+            if (isStockLookupType(normalizedType)) {
+                stockTickers.add(HoldingsDb.normalizeStockTickerInput(normalizedType));
                 continue;
             }
             if ("Shares".equalsIgnoreCase(item.getWhat())) {
@@ -1446,6 +1765,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void showVersionHistory() {
         VersionManager versionManager = new VersionManager(this);
         java.util.List<VersionManager.VersionEntry> versions = versionManager.getAllVersions();
+
+        Log.d(TAG, "Version history retrieved: " + versions.size() + " entries");
 
         if (versions.isEmpty()) {
             Toast.makeText(this, "No version history available", Toast.LENGTH_SHORT).show();

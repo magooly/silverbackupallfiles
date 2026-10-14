@@ -28,15 +28,18 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 public final class BackupSyncManager {
     private static final String TAG = "BackupSyncManager";
     private static final String PREFS_NAME = "backup_sync";
     private static final String PREF_LAST_IMPORTED_TS = "last_imported_ts";
     private static final String PREF_LAST_EXPORTED_AT = "last_exported_at";
+    private static final String PREF_MERGED_BACKUP_FINGERPRINTS = "merged_backup_fingerprints";
     private static final String BACKUP_FILE_NAME = "holdings_backup.json";
     private static final String ABOUT_FILE_NAME = "about.txt";
     private static final String APP_PREFS_STOCK_PRICE_PREFIX = "stock_price_";
@@ -137,10 +140,16 @@ public final class BackupSyncManager {
                 }
             }
 
-            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            SharedPreferences.Editor exportPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                     .edit()
-                    .putLong(PREF_LAST_EXPORTED_AT, System.currentTimeMillis())
-                    .apply();
+                    .putLong(PREF_LAST_EXPORTED_AT, System.currentTimeMillis());
+            if (BACKUP_FILE_NAME.equals(resolvedBackupFileName)) {
+                File exportedSnapshot = getReadableBackupFile(context, BACKUP_FILE_NAME);
+                if (exportedSnapshot != null) {
+                    exportPrefs.putLong(PREF_LAST_IMPORTED_TS, exportedSnapshot.lastModified());
+                }
+            }
+            exportPrefs.apply();
             return new BackupResult(true, "Backup written to " + resolvedBackupFileName + publicWriteWarning);
         } catch (Exception e) {
             Log.e(TAG, "Failed to export backup " + resolvedBackupFileName, e);
@@ -172,7 +181,8 @@ public final class BackupSyncManager {
     }
 
     public static BackupResult restoreNowResult(Context context, String backupFileName, RestoreMode mode) {
-        return importAndMerge(context, true, resolveBackupFileName(backupFileName), mode == null ? RestoreMode.MERGE : mode);
+        return importAndMerge(context, true, resolveBackupFileName(backupFileName),
+                mode == null ? RestoreMode.MERGE : mode);
     }
 
     public static boolean hasBackupFile(Context context, String backupFileName) {
@@ -234,7 +244,8 @@ public final class BackupSyncManager {
         return importAndMerge(context, force, backupFileName, RestoreMode.MERGE);
     }
 
-    private static BackupResult importAndMerge(Context context, boolean force, String backupFileName, RestoreMode mode) {
+    private static BackupResult importAndMerge(Context context, boolean force, String backupFileName,
+            RestoreMode mode) {
         if (context == null) {
             return new BackupResult(false, "Context unavailable.");
         }
@@ -264,11 +275,23 @@ public final class BackupSyncManager {
             }
             applyLookupPreferences(context, root.optJSONObject("lookupPrefs"));
 
+            JSONArray items = root.optJSONArray("items");
+            String itemFingerprint = BackupMergeFingerprint.create(items == null ? "[]" : items.toString());
+            Set<String> mergedFingerprints = new HashSet<>();
+            Set<String> storedFingerprints = prefs.getStringSet(PREF_MERGED_BACKUP_FINGERPRINTS, null);
+            if (storedFingerprints != null) {
+                mergedFingerprints.addAll(storedFingerprints);
+            }
+            if (BackupMergeFingerprint.shouldSkipMerge(mode == RestoreMode.MERGE, itemFingerprint,
+                    mergedFingerprints)) {
+                prefs.edit().putLong(PREF_LAST_IMPORTED_TS, fileTs).apply();
+                return new BackupResult(true, "Backup contents were already merged; no changes made.");
+            }
+
             HoldingsDb holdingsDb = new HoldingsDb(context);
             if (mode == RestoreMode.REPLACE) {
                 holdingsDb.clearAllData();
             }
-            JSONArray items = root.optJSONArray("items");
             BackupNonDetailedAccumulator nonDetailedTotals = new BackupNonDetailedAccumulator();
             if (items != null) {
                 for (int i = 0; i < items.length(); i++) {
@@ -294,7 +317,8 @@ public final class BackupSyncManager {
                         nonDetailedTotals.add(type, total, what, date, time);
                     }
                 }
-                for (java.util.Map.Entry<String, BackupNonDetailedAccumulator.Summary> entry : nonDetailedTotals.getByType()
+                for (java.util.Map.Entry<String, BackupNonDetailedAccumulator.Summary> entry : nonDetailedTotals
+                        .getByType()
                         .entrySet()) {
                     BackupNonDetailedAccumulator.Summary summary = entry.getValue();
                     mergeNonDetailedType(
@@ -306,7 +330,8 @@ public final class BackupSyncManager {
                             summary.what,
                             mode);
                 }
-                // Continue to restore and deduplicate existing data for each merged non-detailed type.
+                // Continue to restore and deduplicate existing data for each merged
+                // non-detailed type.
                 for (String mergedType : nonDetailedTotals.getByType().keySet()) {
                     List<HoldingItem> existing = holdingsDb.getItemsByType(mergedType);
                     for (int i = 1; i < existing.size(); i++) {
@@ -315,7 +340,11 @@ public final class BackupSyncManager {
                 }
             }
 
-            prefs.edit().putLong(PREF_LAST_IMPORTED_TS, fileTs).apply();
+            mergedFingerprints.add(itemFingerprint);
+            prefs.edit()
+                    .putLong(PREF_LAST_IMPORTED_TS, fileTs)
+                    .putStringSet(PREF_MERGED_BACKUP_FINGERPRINTS, mergedFingerprints)
+                    .apply();
             return new BackupResult(true, "Restore completed from " + backupFile.getName());
         } catch (Exception e) {
             Log.e(TAG, "Failed to import backup " + backupFileName, e);
@@ -323,14 +352,16 @@ public final class BackupSyncManager {
         }
     }
 
-    private static boolean hasDetailedDuplicate(HoldingsDb db, String type, String no, String weight, String weightUnit, String what,
+    private static boolean hasDetailedDuplicate(HoldingsDb db, String type, String no, String weight, String weightUnit,
+            String what,
             String total) {
         List<HoldingItem> existing = db.getItemsByType(type);
         String normalizedWeightUnit = HoldingsDb.normalizeWeightUnit(weightUnit, type);
         for (HoldingItem item : existing) {
             if (numericOrTextEquals(item.getNumber(), no)
                     && numericOrTextEquals(item.getWeight(), weight)
-                    && safe(HoldingsDb.normalizeWeightUnit(item.getWeightUnit(), type)).equals(safe(normalizedWeightUnit))
+                    && safe(HoldingsDb.normalizeWeightUnit(item.getWeightUnit(), type))
+                            .equals(safe(normalizedWeightUnit))
                     && safe(item.getWhat()).equals(safe(what))
                     && numericOrTextEquals(item.getTotal(), total)) {
                 return true;
@@ -348,7 +379,8 @@ public final class BackupSyncManager {
             return root;
         }
 
-        SharedPreferences appPrefs = context.getSharedPreferences(context.getString(R.string.app_name), Context.MODE_PRIVATE);
+        SharedPreferences appPrefs = context.getSharedPreferences(context.getString(R.string.app_name),
+                Context.MODE_PRIVATE);
         for (java.util.Map.Entry<String, ?> entry : appPrefs.getAll().entrySet()) {
             String key = entry.getKey();
             Object value = entry.getValue();
@@ -382,7 +414,8 @@ public final class BackupSyncManager {
         if (context == null || lookupPrefs == null) {
             return;
         }
-        SharedPreferences appPrefs = context.getSharedPreferences(context.getString(R.string.app_name), Context.MODE_PRIVATE);
+        SharedPreferences appPrefs = context.getSharedPreferences(context.getString(R.string.app_name),
+                Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = appPrefs.edit();
         applyFloatPreferences(editor, APP_PREFS_STOCK_PRICE_PREFIX, lookupPrefs.optJSONObject("stockPrices"));
         applyFloatPreferences(editor, APP_PREFS_CRYPTO_PRICE_PREFIX, lookupPrefs.optJSONObject("cryptoPrices"));

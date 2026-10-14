@@ -62,6 +62,20 @@ public class VersionManager {
     }
 
     /**
+     * Returns true when a new version entry should be recorded.
+     * This covers fresh installs and cases where the stored version is blank or stale.
+     */
+    public static boolean shouldRecordVersion(String currentVersion, String lastVersion) {
+        if (currentVersion == null || currentVersion.trim().isEmpty()) {
+            return false;
+        }
+        if (lastVersion == null || lastVersion.trim().isEmpty()) {
+            return true;
+        }
+        return !currentVersion.trim().equals(lastVersion.trim());
+    }
+
+    /**
      * Check if current app version differs from last recorded version.
      * If so, add new entry to history.
      */
@@ -70,10 +84,9 @@ public class VersionManager {
 
         String currentVersion = BuildConfig.VERSION_NAME;
         int currentVersionCode = BuildConfig.VERSION_CODE;
-
         String lastVersion = getLastVersion();
 
-        if (!currentVersion.equals(lastVersion)) {
+        if (shouldRecordVersion(currentVersion, lastVersion)) {
             addVersionEntry(currentVersion, currentVersionCode);
             Log.d(TAG, "Version updated: " + lastVersion + " -> " + currentVersion);
         }
@@ -142,6 +155,9 @@ public class VersionManager {
      */
     public List<VersionEntry> getAllVersions() {
         List<VersionEntry> versions = new ArrayList<>();
+        
+        initializeTable();
+        
         SQLiteDatabase db = holdingsDb.getReadableDatabase();
 
         Cursor cursor = null;
@@ -163,6 +179,7 @@ public class VersionManager {
 
                 versions.add(new VersionEntry(versionName, updateDate, timestamp));
             }
+            Log.d(TAG, "Retrieved " + versions.size() + " version entries");
         } catch (Exception e) {
             Log.e(TAG, "Error getting all versions", e);
         } finally {

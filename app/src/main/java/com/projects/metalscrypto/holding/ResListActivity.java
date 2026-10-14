@@ -357,7 +357,8 @@ public class ResListActivity extends AppCompatActivity {
         displayPopUp(itemType, id, no, weight, WEIGHT_UNIT_OZ, what, total);
     }
 
-    public void displayPopUp(final String itemType, final String id, String no, String weight, String weightUnit, String what,
+    public void displayPopUp(final String itemType, final String id, String no, String weight, String weightUnit,
+            String what,
             String total) {
         final AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(mContext, R.style.MyDialogTheme);
         LayoutInflater inflater = this.getLayoutInflater();
@@ -437,6 +438,7 @@ public class ResListActivity extends AppCompatActivity {
                             Toast.makeText(mContext, itemType + " item deleted successfully.", Toast.LENGTH_SHORT)
                                     .show();
                             deleteDialog.dismiss();
+                            dialog.dismiss();
                             loadHoldingSections();
                         } else {
                             Toast.makeText(mContext, "Failed to delete " + itemType + " item.", Toast.LENGTH_SHORT)
@@ -468,7 +470,8 @@ public class ResListActivity extends AppCompatActivity {
         }
     }
 
-    private boolean deleteHoldingItem(String id, String itemType, String no, String weight, String weightUnit, String what, String total) {
+    private boolean deleteHoldingItem(String id, String itemType, String no, String weight, String weightUnit,
+            String what, String total) {
         if (holdingsDb.deleteData(id)) {
             return true;
         }
@@ -478,7 +481,8 @@ public class ResListActivity extends AppCompatActivity {
         for (HoldingItem candidate : candidates) {
             if (safeEquals(candidate.getNumber(), no)
                     && safeEquals(candidate.getWeight(), weight)
-                    && safeEquals(HoldingsDb.normalizeWeightUnit(candidate.getWeightUnit(), itemType), normalizedWeightUnit)
+                    && safeEquals(HoldingsDb.normalizeWeightUnit(candidate.getWeightUnit(), itemType),
+                            normalizedWeightUnit)
                     && safeEquals(candidate.getWhat(), what)
                     && safeEquals(candidate.getTotal(), total)) {
                 return holdingsDb.deleteData(candidate.getId());
@@ -499,9 +503,10 @@ public class ResListActivity extends AppCompatActivity {
             try {
                 prdNo = Float.parseFloat(no);
                 prdWeight = Float.parseFloat(weight);
-                float unitWeightOz = TYPE_SILVER.equalsIgnoreCase(selectedPopupType) && WEIGHT_UNIT_KG.equals(selectedWeightUnit)
-                        ? prdWeight * KG_TO_OZ
-                        : prdWeight;
+                float unitWeightOz = TYPE_SILVER.equalsIgnoreCase(selectedPopupType)
+                        && WEIGHT_UNIT_KG.equals(selectedWeightUnit)
+                                ? prdWeight * KG_TO_OZ
+                                : prdWeight;
                 totalPrice = prdNo * unitWeightOz;
                 etTotal.setText(new DecimalFormat("#,##0.##").format(totalPrice));
             } catch (NumberFormatException e) {
@@ -512,7 +517,8 @@ public class ResListActivity extends AppCompatActivity {
         }
     }
 
-    private void validateData(String itemType, String id, String no, String weight, String weightUnit, String what, String total,
+    private void validateData(String itemType, String id, String no, String weight, String weightUnit, String what,
+            String total,
             AlertDialog dialog) {
         boolean detailedType = isDetailedType(itemType);
         if (itemType.isEmpty()) {
@@ -539,7 +545,8 @@ public class ResListActivity extends AppCompatActivity {
             String normalizedWeightUnit = detailedType
                     ? HoldingsDb.normalizeWeightUnit(weightUnit, itemType)
                     : "";
-            boolean update = holdingsDb.updateData(id, itemType, no, weight, what, total, date, time, normalizedWeightUnit);
+            boolean update = holdingsDb.updateData(id, itemType, no, weight, what, total, date, time,
+                    normalizedWeightUnit);
             if (update) {
                 BackupSyncManager.exportSnapshot(this);
                 Toast.makeText(mContext, itemType + " data updated successfully.", Toast.LENGTH_SHORT).show();
@@ -622,7 +629,8 @@ public class ResListActivity extends AppCompatActivity {
                             normalizedFileName, true);
                     runOnUiThread(() -> {
                         if (!exportResult.isSuccess()) {
-                            Toast.makeText(this, getString(R.string.backup_failed, exportResult.getMessage()), Toast.LENGTH_LONG)
+                            Toast.makeText(this, getString(R.string.backup_failed, exportResult.getMessage()),
+                                    Toast.LENGTH_LONG)
                                     .show();
                             return;
                         }
@@ -655,9 +663,12 @@ public class ResListActivity extends AppCompatActivity {
     private void showRestoreModeDialog(String backupFileName) {
         new AlertDialog.Builder(this)
                 .setTitle(R.string.restore_mode_title)
-                .setItems(new CharSequence[] { getString(R.string.restore_mode_merge), getString(R.string.restore_mode_replace) },
+                .setItems(
+                        new CharSequence[] { getString(R.string.restore_mode_merge),
+                                getString(R.string.restore_mode_replace) },
                         (dialog, which) -> restoreBackupFile(backupFileName,
-                                which == 1 ? BackupSyncManager.RestoreMode.REPLACE : BackupSyncManager.RestoreMode.MERGE))
+                                which == 1 ? BackupSyncManager.RestoreMode.REPLACE
+                                        : BackupSyncManager.RestoreMode.MERGE))
                 .setNegativeButton(R.string.cancel, null)
                 .show();
     }
@@ -668,10 +679,12 @@ public class ResListActivity extends AppCompatActivity {
             return;
         }
         ioExecutor.execute(() -> {
-            BackupSyncManager.BackupResult restoreResult = BackupSyncManager.restoreNowResult(this, backupFileName, mode);
+            BackupSyncManager.BackupResult restoreResult = BackupSyncManager.restoreNowResult(this, backupFileName,
+                    mode);
             runOnUiThread(() -> {
                 if (!restoreResult.isSuccess()) {
-                    Toast.makeText(this, getString(R.string.restore_failed, restoreResult.getMessage()), Toast.LENGTH_LONG)
+                    Toast.makeText(this, getString(R.string.restore_failed, restoreResult.getMessage()),
+                            Toast.LENGTH_LONG)
                             .show();
                     return;
                 }

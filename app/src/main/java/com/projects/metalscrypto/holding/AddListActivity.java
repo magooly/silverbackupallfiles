@@ -239,7 +239,8 @@ public class AddListActivity extends AppCompatActivity {
             if (!no.isEmpty() && !weight.isEmpty()) {
                 prd_no = Float.parseFloat(no);
                 prd_weight = Float.parseFloat(weight);
-                boolean silverDetailedType = isSilverDetailedType(HoldingsDb.normalizeItemType(etItemType.getText().toString()));
+                boolean silverDetailedType = isSilverDetailedType(
+                        HoldingsDb.normalizeItemType(etItemType.getText().toString()));
                 float unitWeightOz = silverDetailedType && WEIGHT_UNIT_KG.equals(selectedWeightUnit)
                         ? prd_weight * KG_TO_OZ
                         : prd_weight;
@@ -312,7 +313,8 @@ public class AddListActivity extends AppCompatActivity {
 
         boolean success;
         if (detailedType) {
-            success = holdingsDb.insertData(itemType, no, weight, what, total, date, time, resolveWeightUnitForSave(itemType));
+            success = holdingsDb.insertData(itemType, no, weight, what, total, date, time,
+                    resolveWeightUnitForSave(itemType));
         } else {
             success = upsertSingleTypeHolding(compactLabel);
         }
@@ -333,6 +335,10 @@ public class AddListActivity extends AppCompatActivity {
         }
 
         HoldingItem keeper = existing.get(0);
+        if ("Shares".equalsIgnoreCase(keeper.getWhat()) || HoldingsDb.isStockTicker(keeper.getItemType())) {
+            compactLabel = "Shares";
+            itemType = HoldingsDb.normalizeStockTickerInput(keeper.getItemType());
+        }
         float combinedTotal = parseAmount(keeper.getTotal()) + parseAmount(total);
         String combinedTotalText = new DecimalFormat("#,##0.##").format(combinedTotal);
 
@@ -352,7 +358,8 @@ public class AddListActivity extends AppCompatActivity {
     }
 
     private void updateWeightLabel() {
-        boolean silverDetailedType = isSilverDetailedType(HoldingsDb.normalizeItemType(etItemType.getText().toString()));
+        boolean silverDetailedType = isSilverDetailedType(
+                HoldingsDb.normalizeItemType(etItemType.getText().toString()));
         if (silverDetailedType) {
             tvWeightLabel.setText(getString(R.string.weight_per_item_toggle_label, selectedWeightUnit));
             return;
@@ -490,6 +497,12 @@ public class AddListActivity extends AppCompatActivity {
         }
         if (HoldingsDb.isStockTicker(normalizedType)) {
             return CATEGORY_STOCKS;
+        }
+        for (HoldingItem existing : holdingsDb.getItemsByType(normalizedType)) {
+            if ("Shares".equalsIgnoreCase(existing.getWhat())
+                    || HoldingsDb.isStockTicker(existing.getItemType())) {
+                return CATEGORY_STOCKS;
+            }
         }
         return CATEGORY_OTHER;
     }

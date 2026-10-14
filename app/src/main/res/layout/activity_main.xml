@@ -122,42 +122,47 @@
                             android:layout_width="0dp"
                             android:layout_height="match_parent"
                             android:layout_marginHorizontal="@dimen/marginplus1"
-                            android:layout_weight="2"
+                            android:layout_weight="1"
                             android:gravity="center_vertical"
                             android:orientation="horizontal"
                             android:text="@string/silver_spot_price_per_oz"
                             android:textColor="@color/textview_text_color"
-                            android:textSize="@dimen/font_14" />
+                            android:textSize="12sp"
+                            android:maxLines="1"
+                            android:singleLine="true" />
 
 
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1.5"
+                            android:layout_weight="2.5"
+                            android:gravity="center_vertical"
                             android:orientation="horizontal">
 
                             <TextView
+                                android:id="@+id/tv_currency_symbol_silver_spot"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_gravity="center"
+                                android:layout_gravity="center_vertical"
                                 android:layout_marginLeft="@dimen/marginplus1"
                                 android:text="@string/doller" />
 
                             <EditText
                                 android:id="@+id/et_slv_slv_price_amount"
                                 android:layout_width="0dp"
-                                android:layout_height="@dimen/marginplus6"
+                                android:layout_height="@dimen/marginplus8"
                                 android:layout_weight="1.5"
-                                android:layout_gravity="center"
+                                android:layout_gravity="center_vertical"
                                 android:layout_marginLeft="4dp"
                                 android:layout_marginRight="4dp"
                                 android:background="@drawable/edittext_bg"
                                 android:digits="0123456789.,"
                                 android:enabled="false"
+                                android:singleLine="true"
                                 android:gravity="right|center_vertical"
                                 android:inputType="number"
-                                android:minWidth="160dp"
-                                android:minEms="8"
+                                android:minWidth="180dp"
+                                android:minEms="10"
                                 android:paddingStart="12dp"
                                 android:paddingEnd="12dp"
                                 android:textColor="@color/textview_text_color"
@@ -165,9 +170,10 @@
                                 android:textStyle="bold" />
 
                             <TextView
+                                android:id="@+id/tv_currency_code_silver_spot"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_gravity="center"
+                                android:layout_gravity="center_vertical"
                                 android:layout_marginLeft="@dimen/marginplus1"
                                 android:text="AUD" />
 
@@ -187,53 +193,59 @@
                             android:layout_width="0dp"
                             android:layout_height="match_parent"
                             android:layout_marginHorizontal="@dimen/marginplus1"
-                            android:layout_weight="2"
+                            android:layout_weight="1"
                             android:gravity="center_vertical"
                             android:orientation="horizontal"
                             android:text="@string/gold_spot_price_per_oz"
                             android:textColor="@color/textview_text_color"
-                            android:textSize="@dimen/font_14" />
+                            android:textSize="12sp"
+                            android:maxLines="1"
+                            android:singleLine="true" />
 
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1.5"
+                            android:layout_weight="2.5"
+                            android:gravity="center_vertical"
                             android:orientation="horizontal">
 
                             <TextView
+                                android:id="@+id/tv_currency_symbol_gold_spot"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_gravity="center"
+                                android:layout_gravity="center_vertical"
                                 android:layout_marginLeft="@dimen/marginplus1"
                                 android:text="$" />
 
                             <EditText
                                 android:id="@+id/et_slv_gld_amount"
                                 android:layout_width="0dp"
-                                android:layout_height="@dimen/marginplus6"
+                                android:layout_height="@dimen/marginplus8"
                                 android:layout_alignParentRight="true"
                                 android:layout_centerHorizontal="true"
                                 android:layout_marginLeft="4dp"
                                 android:layout_marginRight="4dp"
                                 android:layout_weight="1.5"
-                                android:layout_gravity="center"
+                                android:layout_gravity="center_vertical"
                                 android:background="@drawable/edittext_bg"
                                 android:gravity="right|center_vertical"
                                 android:inputType="numberDecimal"
                                 android:enabled="false"
+                                android:singleLine="true"
                                 android:digits="0123456789.,"
                                 android:paddingStart="12dp"
                                 android:paddingEnd="12dp"
-                                android:minWidth="160dp"
-                                android:minEms="8"
+                                android:minWidth="180dp"
+                                android:minEms="10"
                                 android:textColor="@color/textview_text_color"
                                 android:textSize="16sp"
                                 android:textStyle="bold" />
 
                             <TextView
+                                android:id="@+id/tv_currency_code_gold_spot"
                                 android:layout_width="wrap_content"
                                 android:text="AUD"
-                                android:layout_gravity="center"
+                                android:layout_gravity="center_vertical"
                                 android:layout_marginLeft="@dimen/marginplus1"
                                 android:layout_height="wrap_content" />
 
@@ -301,7 +313,7 @@
                             android:layout_width="0dp"
                             android:layout_height="match_parent"
                             android:layout_marginHorizontal="@dimen/marginplus1"
-                            android:layout_weight="2"
+                            android:layout_weight="1"
                             android:gravity="center_vertical"
                             android:orientation="horizontal"
                             android:text="@string/silver"
@@ -312,10 +324,11 @@
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1.5"
+                            android:layout_weight="2.5"
                             android:orientation="horizontal">
 
                             <TextView
+                                android:id="@+id/tv_currency_symbol_silver_holding"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_gravity="center"
@@ -325,7 +338,7 @@
                             <TextView
                                 android:id="@+id/tv_hld_slv_price_amount"
                                 android:layout_width="0dp"
-                                android:layout_height="@dimen/marginplus6"
+                                android:layout_height="@dimen/marginplus8"
                                 android:layout_alignParentRight="true"
                                 android:layout_centerHorizontal="true"
                                 android:layout_marginLeft="2dp"
@@ -334,12 +347,14 @@
                                 android:background="@drawable/edittext_bg"
                                 android:gravity="right|center"
                                 android:padding="5dp"
-                                android:minWidth="160dp"
+                                android:minWidth="180dp"
+                                android:singleLine="true"
                                 android:textColor="@color/textview_text_color"
                                 android:textSize="16sp"
                                 android:textStyle="bold" />
 
                             <TextView
+                                android:id="@+id/tv_currency_code_silver_holding"
                                 android:layout_width="wrap_content"
                                 android:text="AUD"
                                 android:layout_gravity="center"
@@ -362,7 +377,7 @@
                             android:layout_width="0dp"
                             android:layout_height="match_parent"
                             android:layout_marginHorizontal="@dimen/marginplus1"
-                            android:layout_weight="2"
+                            android:layout_weight="1"
                             android:gravity="center_vertical"
                             android:orientation="horizontal"
                             android:text="@string/gold"
@@ -372,10 +387,11 @@
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1.5"
+                            android:layout_weight="2.5"
                             android:orientation="horizontal">
 
                             <TextView
+                                android:id="@+id/tv_currency_symbol_gold_holding"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_gravity="center"
@@ -385,7 +401,7 @@
                             <TextView
                                 android:id="@+id/tv_hld_gld_amount"
                                 android:layout_width="0dp"
-                                android:layout_height="@dimen/marginplus6"
+                                android:layout_height="@dimen/marginplus8"
                                 android:layout_alignParentRight="true"
                                 android:layout_centerHorizontal="true"
                                 android:layout_marginLeft="2dp"
@@ -394,12 +410,14 @@
                                 android:background="@drawable/edittext_bg"
                                 android:gravity="right|center"
                                 android:padding="5dp"
-                                android:minWidth="160dp"
+                                android:minWidth="180dp"
+                                android:singleLine="true"
                                 android:textColor="@color/textview_text_color"
                                 android:textSize="16sp"
                                 android:textStyle="bold" />
 
                             <TextView
+                                android:id="@+id/tv_currency_code_gold_holding"
                                 android:layout_width="wrap_content"
                                 android:text="AUD"
                                 android:layout_gravity="center"
@@ -423,7 +441,7 @@
                             android:layout_width="0dp"
                             android:layout_height="match_parent"
                             android:layout_marginHorizontal="@dimen/marginplus1"
-                            android:layout_weight="2"
+                            android:layout_weight="1"
                             android:gravity="center_vertical"
                             android:orientation="horizontal"
                             android:text="@string/copper"
@@ -433,10 +451,11 @@
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1.5"
+                            android:layout_weight="2.5"
                             android:orientation="horizontal">
 
                             <TextView
+                                android:id="@+id/tv_currency_symbol_copper_holding"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_gravity="center"
@@ -446,20 +465,23 @@
                             <TextView
                                 android:id="@+id/tv_hld_cpr_amount"
                                 android:layout_width="0dp"
-                                android:layout_height="@dimen/marginplus6"
+                                android:layout_height="@dimen/marginplus8"
                                 android:layout_alignParentRight="true"
                                 android:layout_centerHorizontal="true"
                                 android:layout_marginLeft="2dp"
-                                android:layout_weight="1"
+                                android:layout_weight="1.5"
                                 android:layout_gravity="center"
                                 android:background="@drawable/edittext_bg"
                                 android:gravity="right|center"
                                 android:padding="5dp"
+                                android:minWidth="180dp"
+                                android:singleLine="true"
                                 android:textColor="@color/textview_text_color"
                                 android:textSize="16sp"
                                 android:textStyle="bold" />
 
                             <TextView
+                                android:id="@+id/tv_currency_code_copper_holding"
                                 android:layout_width="wrap_content"
                                 android:text="AUD"
                                 android:layout_gravity="center"
@@ -485,15 +507,15 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
                         android:background="@drawable/edittext_bg"
-                        android:orientation="horizontal"
+                        android:orientation="vertical"
                         android:padding="8dp"
                         android:visibility="gone">
 
                         <TextView
                             android:id="@+id/tv_price_notice"
-                            android:layout_width="0dp"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
+                            android:singleLine="false"
                             android:textColor="@color/textview_text_color"
                             android:textSize="13sp" />
 
@@ -501,7 +523,8 @@
                             android:id="@+id/btn_clear_price_notice"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
+                            android:layout_gravity="end"
+                            android:layout_marginTop="4dp"
                             android:minHeight="0dp"
                             android:text="@string/clear"
                             android:textAllCaps="false"
@@ -524,20 +547,22 @@
                             android:layout_width="0dp"
                             android:layout_height="match_parent"
                             android:layout_marginHorizontal="@dimen/marginplus1"
-                            android:layout_weight="2"
+                            android:layout_weight="1"
                             android:gravity="center_vertical"
                             android:orientation="horizontal"
                             android:text="@string/total_value_all_items"
                             android:textColor="@color/textview_text_color"
-                            android:textSize="@dimen/font_14" />
+                            android:textSize="@dimen/font_14"
+                            android:maxLines="2" />
 
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1.5"
+                            android:layout_weight="2.5"
                             android:orientation="horizontal">
 
                             <TextView
+                                android:id="@+id/tv_currency_symbol_total"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_gravity="center"
@@ -547,19 +572,21 @@
                             <TextView
                                 android:id="@+id/tv_hld_ttl_amount"
                                 android:layout_width="0dp"
-                                android:layout_height="@dimen/marginplus6"
+                                android:layout_height="@dimen/marginplus8"
                                 android:layout_marginLeft="2dp"
                                 android:layout_weight="1.5"
                                 android:layout_gravity="center"
                                 android:background="@drawable/edittext_bg"
                                 android:gravity="right|center"
                                 android:padding="5dp"
-                                android:minWidth="160dp"
+                                android:minWidth="180dp"
+                                android:singleLine="true"
                                 android:textColor="@color/textview_text_color"
                                 android:textSize="16sp"
                                 android:textStyle="bold" />
 
                             <TextView
+                                android:id="@+id/tv_currency_code_total"
                                 android:layout_width="wrap_content"
                                 android:text="AUD"
                                 android:layout_gravity="center"
@@ -592,32 +619,6 @@
             android:gravity="center"
             android:orientation="horizontal"
             android:paddingHorizontal="@dimen/marginplus1">
-
-            <Button
-                android:id="@+id/btn_silver_update"
-                android:layout_width="160dp"
-                android:layout_height="wrap_content"
-                android:background="@drawable/rounded_button_border"
-                android:minHeight="45dp"
-                android:paddingVertical="8dp"
-                android:paddingHorizontal="@dimen/marginplus2"
-                android:layout_marginHorizontal="@dimen/marginplus1"
-                android:text="@string/updateprice"
-                android:textAllCaps="false"
-                android:textColor="@color/colorPrimary" />
-
-            <Button
-                android:id="@+id/btn_holding_update"
-                android:layout_width="160dp"
-                android:layout_height="wrap_content"
-                android:background="@drawable/rounded_button_border"
-                android:minHeight="45dp"
-                android:paddingVertical="8dp"
-                android:paddingHorizontal="@dimen/marginplus2"
-                android:layout_marginHorizontal="@dimen/marginplus1"
-                android:text="@string/update_holding"
-                android:textAllCaps="false"
-                android:textColor="@color/colorPrimary" />
 
         </LinearLayout>
 

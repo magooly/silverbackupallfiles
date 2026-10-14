@@ -29,7 +29,7 @@
     <string name="vhat">What</string>
     <string name="total_oz">Total oz</string>
     <string name="select">Select</string>
-    <string name="item_type">Item Type</string>
+    <string name="item_type">Item Type (eg Silver, ANZ, ETH)</string>
     <string name="clear">Clear</string>
     <string name="submit">Submit</string>
     <string name="please_select_type">Please select mode</string>
@@ -75,7 +75,7 @@
     <string name="crypto_amount_hint">For crypto, enter the amount of coins held (for example, 0.25).</string>
     <string name="metal_units_hint">For metals, enter total units held.</string>
     <string name="total_value_hint">For custom items, enter the total value.</string>
-    <string name="price_notice_missing_values">Prices unavailable for %1$s. Their value is shown as 0 until price data is available.</string>
+    <string name="price_notice_missing_values">Prices unavailable for %1$s. Their value and the portfolio total show N/A until prices are available.</string>
     <string name="api_error_log_heading">API Error Log</string>
     <string name="api_error_log_empty">No API errors logged yet.</string>
     <string name="clear_api_log">Clear API Log</string>
@@ -110,11 +110,26 @@
     <string name="shares_label">Shares</string>
     <string name="stock_shares_hint">For ASX stocks, enter the number of shares.</string>
     <string name="stock_source_label">Stock price source: EODHD %1$s</string>
-    <string name="silver_spot_price_per_oz">Silver spot price per oz</string>
-    <string name="gold_spot_price_per_oz">Gold spot price per oz</string>
+    <string name="silver_spot_price_per_oz">Silver Spot oz</string>
+    <string name="gold_spot_price_per_oz">Gold Spot oz</string>
     <string name="holding_value_by_item">Value of Holding by Item</string>
-    <string name="total_value_all_items">Total Value all Items</string>
+    <string name="total_value_all_items">Total Value\nall Items</string>
     <string name="version_display_format">Version %1$s</string>
-    <string name="version_placeholder">Version 1.0.0</string>
+    <string name="version_placeholder">Version 1.1.0</string>
     <string name="action_version_history">Version History</string>
+    <string name="get_latest_prices">Get Latest Prices</string>
+    <string name="action_display_currency">Display currency</string>
+    <string name="select_display_currency">Display currency</string>
+    <string name="whole_dollars_only">Whole dollars only</string>
+    <string name="press_back_again_to_exit">Press Back again to exit.</string>
+    <string name="currency_value_unavailable">N/A</string>
+    <string-array name="display_currency_options">
+        <item>AUD - Australian Dollar</item>
+        <item>NZD - New Zealand Dollar</item>
+        <item>USD - US Dollar</item>
+        <item>GBP - British Pound</item>
+        <item>EUR - Euro</item>
+        <item>CNY - Chinese Yuan</item>
+        <item>JPY - Japanese Yen</item>
+    </string-array>
 </resources>

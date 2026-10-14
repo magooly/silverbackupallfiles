@@ -35,6 +35,51 @@
             android:orientation="horizontal"
             android:padding="@dimen/marginplus1">
 
+            <RadioGroup
+                android:id="@+id/rg_item_category"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="@dimen/marginplus2"
+                android:layout_marginBottom="4dp"
+                android:orientation="horizontal">
+
+                <RadioButton
+                    android:id="@+id/rb_category_metals"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/category_metals" />
+
+                <RadioButton
+                    android:id="@+id/rb_category_crypto"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:text="@string/category_crypto" />
+
+                <RadioButton
+                    android:id="@+id/rb_category_stocks"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:text="@string/category_stocks" />
+
+                <RadioButton
+                    android:id="@+id/rb_category_other"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:text="@string/category_other" />
+            </RadioGroup>
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="@dimen/marginplus1"
+            android:orientation="horizontal"
+            android:padding="@dimen/marginplus1">
+
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -57,42 +102,6 @@
                 android:textSize="@dimen/font_14" />
 
         </LinearLayout>
-
-        <RadioGroup
-            android:id="@+id/rg_item_category"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="@dimen/marginplus2"
-            android:layout_marginBottom="4dp"
-            android:orientation="horizontal">
-
-            <RadioButton
-                android:id="@+id/rb_category_metals"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/category_metals" />
-
-            <RadioButton
-                android:id="@+id/rb_category_crypto"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="10dp"
-                android:text="@string/category_crypto" />
-
-            <RadioButton
-                android:id="@+id/rb_category_stocks"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="10dp"
-                android:text="@string/category_stocks" />
-
-            <RadioButton
-                android:id="@+id/rb_category_other"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="10dp"
-                android:text="@string/category_other" />
-        </RadioGroup>
 
         <TextView
             android:layout_width="match_parent"

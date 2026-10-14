@@ -65,6 +65,19 @@ public class HoldingSummaryHelperTest {
         assertEquals(5F, totals.orderedTotals.get(0).getValue(), 0.0001F);
     }
 
+    @Test
+    public void calculate_combinesShareQuantitiesUnderCanonicalTicker() {
+        List<HoldingItem> items = new ArrayList<>();
+        items.add(item("BHP", "10", "Shares"));
+        items.add(item("bhp", "5", "Shares"));
+
+        HoldingSummaryHelper.SummaryTotals totals = HoldingSummaryHelper.calculate(items);
+
+        assertEquals(1, totals.orderedTotals.size());
+        assertEquals("BHP", totals.orderedTotals.get(0).getKey());
+        assertEquals(15F, totals.orderedTotals.get(0).getValue(), 0.0001F);
+    }
+
     private HoldingItem item(String type, String total) {
         HoldingItem item = new HoldingItem();
         item.setItemType(type);
