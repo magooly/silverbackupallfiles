@@ -1,10 +1,23 @@
 METALS & CRYPTO HOLDINGS - USER GUIDE
-App version 1.1.0 | Guide updated 14 October 2026
+App version 1.1.0 | Guide updated 15 October 2026
 
 PAGE ONE
-Gold Spot oz and Silver Spot oz are prices for one ounce, independent of your
-holding quantities. Holding values use your saved quantities. Gold/Silver prices
-are requested even when neither metal is held.
+The Unit prices section shows up to six favourites, independent of quantities
+you hold. Gold and Silver are the defaults, priced per ounce. Holding values
+below this section still use your actual saved quantities.
+
+SPOT-PRICE FAVOURITES
+Open the three-dot menu and select Spot-price favourites. Use Add asset to choose
+Gold, Silver, Platinum, Palladium, supported cryptocurrencies, or portfolio stocks.
+Add ASX ticker also accepts unowned stocks. Use the up/down arrows to reorder,
+the remove icon to remove a favourite, then Save. Cancel discards the edits.
+Select at most six distinct assets; removing all favourites is allowed.
+Selections and order are remembered locally, but are not in holdings JSON backups.
+Other/manual items and base metals with unverified quote units are excluded.
+Each row identifies oz, coin, or share and Latest quote, Cached quote, or
+Unavailable. Currency/whole-dollar settings apply. N/A means no usable quote or
+required FX rate. Saved selections refresh when opening online or using Get
+Latest Prices. Favourites never create holdings or change saved quantities.
 
 Back on page one shows "Press Back again to exit." Press Back again within two
 seconds to leave. The confirmation resets when you leave page one. Other screens

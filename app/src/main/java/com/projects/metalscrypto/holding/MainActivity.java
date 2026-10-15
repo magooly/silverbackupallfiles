@@ -20,7 +20,9 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -34,6 +36,7 @@ import androidx.appcompat.widget.Toolbar;
 import androidx.appcompat.widget.AppCompatCheckBox;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.ViewCompat;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -61,6 +64,7 @@ import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.HashMap;
@@ -90,6 +94,8 @@ public class MainActivity extends AppCompatActivity {
     private static final String PREF_PRICE_NOTICE_DISMISSED = "pref_price_notice_dismissed";
     private static final String PREF_DISPLAY_CURRENCY = "pref_display_currency";
     private static final String PREF_WHOLE_DOLLARS_ONLY = "pref_whole_dollars_only";
+    private static final String PREF_SPOT_FAVOURITES = "pref_spot_favourites";
+    private static final String PREF_SPOT_QUOTE_PREFIX = "spot_quote_";
     private static final String PREF_FX_UPDATED_AT = "pref_fx_updated_at";
     private static final String PREF_FX_RATE_PREFIX = "pref_fx_rate_usd_";
     private static final long FX_RATE_REFRESH_INTERVAL_MS = 24L * 60L * 60L * 1000L;
@@ -127,7 +133,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private Context mContext;
-    private EditText et_slv_slv_price_amount, et_slv_gld_amount;
     private TextView tv_hld_slv_price_amount, tv_hld_gld_amount, tv_hld_ttl_amount, tvDate, tvPriceHeading,
             tvAppVersion, tvPriceNotice;
     private Button btnClearPriceNotice;
@@ -165,6 +170,9 @@ public class MainActivity extends AppCompatActivity {
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
     private String displayCurrency = "AUD";
     private boolean exchangeRateRequestInProgress;
+    private final List<SpotPriceFavourite> spotFavourites = new ArrayList<>();
+    private final Map<String, Float> latestSpotQuotes = new HashMap<>();
+    private LinearLayout spotFavouritesContainer;
     private long lastExitBackAt = -1L;
     private Toast exitBackToast;
 
@@ -173,6 +181,7 @@ public class MainActivity extends AppCompatActivity {
         preferences = getSharedPreferences(getString(R.string.app_name), MODE_PRIVATE);
         displayCurrency = normalizeDisplayCurrency(preferences.getString(PREF_DISPLAY_CURRENCY, "AUD"));
         loadCachedExchangeRates();
+        loadSpotFavourites();
         boolean darkMode = preferences.getBoolean(PREF_DARK_MODE, false);
         AppCompatDelegate
                 .setDefaultNightMode(darkMode ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
@@ -298,6 +307,7 @@ public class MainActivity extends AppCompatActivity {
                         if (metalPrice <= 0) {
                             continue;
                         }
+                        recordSpotQuote(SpotPriceFavourite.metal(metalType), metalPrice);
                         if ("Gold".equalsIgnoreCase(metalType)) {
                             lv_gold_amt = metalPrice;
                             slv_gld_price = String.valueOf(metalPrice);
@@ -382,6 +392,12 @@ public class MainActivity extends AppCompatActivity {
         Set<String> unresolvedTypes = new LinkedHashSet<>();
         for (String cryptoType : trackedCryptoTypes) {
             String id = resolveCryptoId(cryptoType);
+            for (SpotPriceFavourite favourite : spotFavourites) {
+                if ("crypto".equals(favourite.kind) && favourite.name.equals(cryptoType)) {
+                    id = favourite.key;
+                    break;
+                }
+            }
             if (id == null || id.trim().isEmpty()) {
                 unresolvedTypes.add(cryptoType);
                 continue;
@@ -420,6 +436,7 @@ public class MainActivity extends AppCompatActivity {
                             promptForCryptoIdOverride(cryptoType, cryptoId);
                             continue;
                         }
+                        recordSpotQuote(SpotPriceFavourite.crypto(cryptoType, cryptoId), cryptoPrice);
                         if ("Bitcoin".equalsIgnoreCase(cryptoType)) {
                             lv_btc_amt = cryptoPrice;
                         } else if ("Ethereum".equalsIgnoreCase(cryptoType)) {
@@ -524,8 +541,7 @@ public class MainActivity extends AppCompatActivity {
                 if (response.isSuccessful() && response.body() != null) {
                     float stockPrice = parseStockPrice(response.body(), queriedSymbol);
                     if (stockPrice > 0) {
-                        liveStockPrices.put(ticker, stockPrice);
-                        cacheStockPrice(ticker, stockPrice);
+                        acceptStockQuote(ticker, stockPrice);
                         updateUI();
                         return;
                     }
@@ -560,8 +576,7 @@ public class MainActivity extends AppCompatActivity {
                 if (response.isSuccessful() && response.body() != null) {
                     float stockPrice = parseStockPrice(response.body(), queriedSymbol);
                     if (stockPrice > 0) {
-                        liveStockPrices.put(ticker, stockPrice);
-                        cacheStockPrice(ticker, stockPrice);
+                        acceptStockQuote(ticker, stockPrice);
                         updateUI();
                         return;
                     }
@@ -796,12 +811,11 @@ public class MainActivity extends AppCompatActivity {
             actionBar.setDisplayShowTitleEnabled(false);
         }
 
-        et_slv_slv_price_amount = findViewById(R.id.et_slv_slv_price_amount);
-        et_slv_gld_amount = findViewById(R.id.et_slv_gld_amount);
         tv_hld_slv_price_amount = findViewById(R.id.tv_hld_slv_price_amount);
         tv_hld_gld_amount = findViewById(R.id.tv_hld_gld_amount);
         tv_hld_ttl_amount = findViewById(R.id.tv_hld_ttl_amount);
         tvPriceHeading = findViewById(R.id.tv_price_heading);
+        spotFavouritesContainer = findViewById(R.id.spot_price_favourites_container);
         llDynamicHoldings = findViewById(R.id.ll_dynamic_holdings);
         llPriceNotice = findViewById(R.id.ll_price_notice);
         tvPriceNotice = findViewById(R.id.tv_price_notice);
@@ -866,14 +880,7 @@ public class MainActivity extends AppCompatActivity {
                 preferences.getBoolean(PREF_WHOLE_DOLLARS_ONLY, false) ? "#,##0" : "#,##0.00");
         priceFormat.setRoundingMode(RoundingMode.HALF_UP);
         updateCurrencyLabels();
-
-        // Silver and Gold remain fixed rows on the first screen.
-        et_slv_slv_price_amount.setText(formatCurrencyValue(
-                CurrencyConverter.convert(current_silver_price, "USD", displayCurrency, exchangeRatesFromUsd),
-                priceFormat));
-        et_slv_gld_amount.setText(formatCurrencyValue(
-                CurrencyConverter.convert(current_gold_price, "USD", displayCurrency, exchangeRatesFromUsd),
-                priceFormat));
+        renderSpotFavourites(priceFormat);
 
         Double silverHoldingAud = CurrencyConverter.convertHoldingValue(
                 silver_total, current_silver_price, "USD", "AUD", exchangeRatesFromUsd);
@@ -1083,7 +1090,16 @@ public class MainActivity extends AppCompatActivity {
                 return livePrice;
             }
             Float cachedPrice = cachedStockPrices.get(ticker);
-            return cachedPrice != null ? cachedPrice : 0;
+            if (cachedPrice != null && cachedPrice > 0) {
+                return cachedPrice;
+            }
+            SpotPriceFavourite stock = SpotPriceFavourite.stock(ticker);
+            if (stock != null) {
+                Float favouriteQuote = latestSpotQuotes.get(stock.id());
+                return favouriteQuote != null ? favouriteQuote
+                        : preferences.getFloat(PREF_SPOT_QUOTE_PREFIX + stock.id(), 0F);
+            }
+            return 0;
         }
         return 0;
     }
@@ -1163,18 +1179,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showCachedPricesIndicator() {
-        if (alSilver != null && !alSilver.isEmpty()) {
-            SilverDBModel cached = alSilver.get(0);
-            if (tvPriceHeading != null) {
-                tvPriceHeading.setText(getString(
-                        R.string.price_updated_cached_at,
-                        cached.getDate(),
-                        cached.getTime()));
-            }
-        } else {
-            if (tvPriceHeading != null) {
-                tvPriceHeading.setText(R.string.price_update_unavailable);
-            }
+        if (tvPriceHeading != null) {
+            tvPriceHeading.setText(R.string.spot_prices_heading);
         }
     }
 
@@ -1201,6 +1207,10 @@ public class MainActivity extends AppCompatActivity {
         }
         if (id == R.id.action_display_currency) {
             showDisplayCurrencyPicker();
+            return true;
+        }
+        if (id == R.id.action_spot_favourites) {
+            showSpotFavouritesEditor();
             return true;
         }
         if (id == R.id.action_about) {
@@ -1395,16 +1405,12 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateCurrencyLabels() {
         int[] symbolIds = {
-                R.id.tv_currency_symbol_silver_spot,
-                R.id.tv_currency_symbol_gold_spot,
                 R.id.tv_currency_symbol_silver_holding,
                 R.id.tv_currency_symbol_gold_holding,
                 R.id.tv_currency_symbol_copper_holding,
                 R.id.tv_currency_symbol_total
         };
         int[] codeIds = {
-                R.id.tv_currency_code_silver_spot,
-                R.id.tv_currency_code_gold_spot,
                 R.id.tv_currency_code_silver_holding,
                 R.id.tv_currency_code_gold_holding,
                 R.id.tv_currency_code_copper_holding,
@@ -1531,7 +1537,7 @@ public class MainActivity extends AppCompatActivity {
         SimpleDateFormat mdformat = new SimpleDateFormat("HH:mm:ss a", Locale.US);
         time = mdformat.format(calendar.getTime());
         if (tvPriceHeading != null) {
-            tvPriceHeading.setText(getString(R.string.price_updated_at, date, time));
+            tvPriceHeading.setText(R.string.spot_prices_heading);
         }
 
         if (slv_slv_price != null && !slv_slv_price.isEmpty()) {
@@ -1644,6 +1650,11 @@ public class MainActivity extends AppCompatActivity {
         Set<String> metalTypes = new LinkedHashSet<>();
         metalTypes.add(TYPE_GOLD);
         metalTypes.add(TYPE_SILVER);
+        for (SpotPriceFavourite favourite : spotFavourites) {
+            if ("metal".equals(favourite.kind)) {
+                metalTypes.add(favourite.key);
+            }
+        }
         for (HoldingItem item : holdingsDb.getAllItems()) {
             String normalizedType = HoldingsDb.normalizeItemType(item.getItemType());
             if (isMetalType(normalizedType)) {
@@ -1655,6 +1666,11 @@ public class MainActivity extends AppCompatActivity {
 
     private Set<String> getTrackedCryptoTypes() {
         Set<String> cryptoTypes = new LinkedHashSet<>();
+        for (SpotPriceFavourite favourite : spotFavourites) {
+            if ("crypto".equals(favourite.kind)) {
+                cryptoTypes.add(favourite.name);
+            }
+        }
         for (HoldingItem item : holdingsDb.getAllItems()) {
             String normalizedType = HoldingsDb.normalizeItemType(item.getItemType());
             if (isMetalType(normalizedType) || HoldingsDb.isStockTicker(normalizedType)) {
@@ -1671,6 +1687,11 @@ public class MainActivity extends AppCompatActivity {
 
     private Set<String> getTrackedStockTickers() {
         Set<String> stockTickers = new LinkedHashSet<>();
+        for (SpotPriceFavourite favourite : spotFavourites) {
+            if ("stock".equals(favourite.kind)) {
+                stockTickers.add(favourite.key);
+            }
+        }
         for (HoldingItem item : holdingsDb.getAllItems()) {
             String normalizedType = HoldingsDb.normalizeItemType(item.getItemType());
             if (isStockLookupType(normalizedType)) {
@@ -1685,6 +1706,213 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         return stockTickers;
+    }
+
+    private void loadSpotFavourites() {
+        spotFavourites.clear();
+        if (!preferences.contains(PREF_SPOT_FAVOURITES)) {
+            spotFavourites.addAll(SpotPriceFavourite.defaults());
+            return;
+        }
+        spotFavourites.addAll(SpotPriceFavourite.restore(preferences.getString(PREF_SPOT_FAVOURITES, "[]")));
+    }
+
+    private void saveSpotFavourites(List<SpotPriceFavourite> selected) {
+        spotFavourites.clear();
+        spotFavourites.addAll(selected);
+        preferences.edit().putString(PREF_SPOT_FAVOURITES, SpotPriceFavourite.serialize(spotFavourites)).apply();
+        updateUI();
+        getLiveData();
+    }
+
+    private void recordSpotQuote(SpotPriceFavourite favourite, float price) {
+        if (favourite != null && price > 0 && !Float.isNaN(price) && !Float.isInfinite(price)) {
+            latestSpotQuotes.put(favourite.id(), price);
+            preferences.edit().putFloat(PREF_SPOT_QUOTE_PREFIX + favourite.id(), price).apply();
+        }
+    }
+
+    private void renderSpotFavourites(DecimalFormat formatter) {
+        spotFavouritesContainer.removeAllViews();
+        if (spotFavourites.isEmpty()) {
+            TextView empty = new TextView(this);
+            empty.setText(R.string.spot_empty);
+            spotFavouritesContainer.addView(empty);
+            return;
+        }
+        for (SpotPriceFavourite favourite : spotFavourites) {
+            Float latest = latestSpotQuotes.get(favourite.id());
+            float price = latest != null ? latest
+                    : preferences.getFloat(PREF_SPOT_QUOTE_PREFIX + favourite.id(), 0F);
+            if (price <= 0) {
+                price = getCurrentPriceByType(favourite.name);
+            }
+            Double converted = price > 0
+                    ? CurrencyConverter.convert(price, favourite.currency, displayCurrency, exchangeRatesFromUsd)
+                    : null;
+            View row = getLayoutInflater().inflate(R.layout.view_spot_price_row, spotFavouritesContainer, false);
+            TextView label = row.findViewById(R.id.spot_asset_label);
+            TextView status = row.findViewById(R.id.spot_quote_status);
+            TextView amount = row.findViewById(R.id.spot_price_amount);
+            TextView symbol = row.findViewById(R.id.spot_currency_symbol);
+            TextView currency = row.findViewById(R.id.spot_currency_code);
+            label.setText(getString(R.string.spot_asset_unit, favourite.name, favourite.unit));
+            status.setText(price <= 0 ? R.string.spot_unavailable
+                    : latest != null ? R.string.spot_latest : R.string.spot_cached);
+            amount.setText(formatCurrencyValue(converted, formatter));
+            symbol.setText(currencySymbol(displayCurrency));
+            currency.setText(displayCurrency);
+            spotFavouritesContainer.addView(row);
+        }
+    }
+
+    private void showSpotFavouritesEditor() {
+        List<SpotPriceFavourite> selected = new ArrayList<>(spotFavourites);
+        LinearLayout rows = new LinearLayout(this);
+        rows.setOrientation(LinearLayout.VERTICAL);
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(rows);
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle(R.string.spot_favourites)
+                .setView(scroll)
+                .setPositiveButton(R.string.save, (button, which) -> saveSpotFavourites(selected))
+                .setNegativeButton(R.string.cancel, null)
+                .setNeutralButton(R.string.spot_add_asset, null)
+                .create();
+        dialog.setOnShowListener(ignored -> {
+            renderSpotEditor(rows, selected, dialog);
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL)
+                    .setOnClickListener(button -> showSpotAssetChooser(rows, selected, dialog));
+        });
+        dialog.show();
+    }
+
+    private void renderSpotEditor(LinearLayout rows, List<SpotPriceFavourite> selected, AlertDialog dialog) {
+        rows.removeAllViews();
+        dialog.setTitle(getString(R.string.spot_favourites_title, selected.size()));
+        dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setEnabled(selected.size() < SpotPriceFavourite.LIMIT);
+        if (selected.isEmpty()) {
+            TextView empty = new TextView(this);
+            empty.setText(R.string.spot_empty);
+            rows.addView(empty);
+        }
+        for (int position = 0; position < selected.size(); position++) {
+            final int index = position;
+            SpotPriceFavourite favourite = selected.get(index);
+            LinearLayout row = new LinearLayout(this);
+            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            TextView label = new TextView(this);
+            label.setText(getString(R.string.spot_asset_unit, favourite.name, favourite.unit));
+            row.addView(label, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1F));
+            ImageButton up = spotEditorButton(android.R.drawable.arrow_up_float,
+                    getString(R.string.spot_move_up, favourite.name), button -> {
+                        Collections.swap(selected, index, index - 1);
+                        renderSpotEditor(rows, selected, dialog);
+                    });
+            up.setEnabled(index > 0);
+            row.addView(up);
+            ImageButton down = spotEditorButton(android.R.drawable.arrow_down_float,
+                    getString(R.string.spot_move_down, favourite.name), button -> {
+                        Collections.swap(selected, index, index + 1);
+                        renderSpotEditor(rows, selected, dialog);
+                    });
+            down.setEnabled(index < selected.size() - 1);
+            row.addView(down);
+            row.addView(spotEditorButton(android.R.drawable.ic_menu_delete,
+                    getString(R.string.spot_remove, favourite.name), button -> {
+                        selected.remove(index);
+                        renderSpotEditor(rows, selected, dialog);
+                    }));
+            rows.addView(row);
+        }
+    }
+
+    private ImageButton spotEditorButton(int icon, String description, View.OnClickListener listener) {
+        ImageButton button = new ImageButton(this);
+        int size = Math.round(48 * getResources().getDisplayMetrics().density);
+        button.setLayoutParams(new LinearLayout.LayoutParams(size, size));
+        button.setImageResource(icon);
+        button.setContentDescription(description);
+        ViewCompat.setTooltipText(button, description);
+        button.setOnClickListener(listener);
+        return button;
+    }
+
+    private void showSpotAssetChooser(LinearLayout rows, List<SpotPriceFavourite> selected, AlertDialog editor) {
+        Map<String, SpotPriceFavourite> options = new LinkedHashMap<>();
+        for (String metal : new String[] { "Gold", "Silver", "Platinum", "Palladium" }) {
+            SpotPriceFavourite asset = SpotPriceFavourite.metal(metal);
+            options.put(asset.id(), asset);
+        }
+        for (Map.Entry<String, String> coin : CRYPTO_ID_BY_TYPE.entrySet()) {
+            SpotPriceFavourite asset = SpotPriceFavourite.crypto(coin.getKey(), coin.getValue());
+            if (!options.containsKey(asset.id())) {
+                options.put(asset.id(), asset);
+            }
+        }
+        for (HoldingItem item : holdingsDb.getAllItems()) {
+            String type = HoldingsDb.normalizeItemType(item.getItemType());
+            SpotPriceFavourite asset = null;
+            if (isStockLookupType(type) || "Shares".equalsIgnoreCase(item.getWhat())) {
+                asset = SpotPriceFavourite.stock(type);
+            } else if (isCryptoLookupType(type) || "Amount".equalsIgnoreCase(item.getWhat())) {
+                asset = SpotPriceFavourite.crypto(type, resolveCryptoId(type));
+            }
+            if (asset != null) {
+                options.put(asset.id(), asset);
+            }
+        }
+        for (SpotPriceFavourite favourite : selected) {
+            options.remove(favourite.id());
+        }
+        List<SpotPriceFavourite> assets = new ArrayList<>(options.values());
+        String[] labels = new String[assets.size()];
+        for (int index = 0; index < assets.size(); index++) {
+            SpotPriceFavourite asset = assets.get(index);
+            labels[index] = getString(R.string.spot_asset_kind,
+                    getString(R.string.spot_asset_unit, asset.name, asset.unit),
+                    "stock".equals(asset.kind) ? getString(R.string.category_stocks)
+                            : "metal".equals(asset.kind) ? getString(R.string.category_metals)
+                                    : getString(R.string.category_crypto));
+        }
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.spot_add_asset)
+                .setItems(labels, (dialog, which) -> {
+                    if (!SpotPriceFavourite.add(selected, assets.get(which))) {
+                        Toast.makeText(this, R.string.spot_limit_or_duplicate, Toast.LENGTH_SHORT).show();
+                    }
+                    renderSpotEditor(rows, selected, editor);
+                })
+                .setNeutralButton(R.string.spot_add_stock, (dialog, which) -> promptSpotStock(rows, selected, editor))
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void promptSpotStock(LinearLayout rows, List<SpotPriceFavourite> selected, AlertDialog editor) {
+        EditText input = new EditText(this);
+        input.setSingleLine(true);
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS);
+        input.setHint(R.string.spot_stock_hint);
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle(R.string.spot_add_stock)
+                .setView(input)
+                .setPositiveButton(R.string.add, null)
+                .setNegativeButton(R.string.cancel, null)
+                .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(button -> {
+            SpotPriceFavourite asset = SpotPriceFavourite.stock(input.getText().toString());
+            if (asset == null) {
+                input.setError(getString(R.string.spot_invalid_stock));
+                return;
+            }
+            if (!SpotPriceFavourite.add(selected, asset)) {
+                input.setError(getString(R.string.spot_limit_or_duplicate));
+                return;
+            }
+            renderSpotEditor(rows, selected, editor);
+            dialog.dismiss();
+        }));
+        dialog.show();
     }
 
     private void loadCachedCryptoPrices() {
@@ -1743,6 +1971,22 @@ public class MainActivity extends AppCompatActivity {
             if (value > 0) {
                 cachedStockPrices.put(ticker, value);
             }
+        }
+    }
+
+    private void acceptStockQuote(String ticker, float price) {
+        recordSpotQuote(SpotPriceFavourite.stock(ticker), price);
+        boolean belongsToPortfolio = cachedStockPrices.containsKey(ticker);
+        for (HoldingItem item : holdingsDb.getAllItems()) {
+            if (("Shares".equalsIgnoreCase(item.getWhat()) || HoldingsDb.isStockTicker(item.getItemType()))
+                    && ticker.equals(HoldingsDb.normalizeStockTickerInput(item.getItemType()))) {
+                belongsToPortfolio = true;
+                break;
+            }
+        }
+        if (belongsToPortfolio) {
+            liveStockPrices.put(ticker, price);
+            cacheStockPrice(ticker, price);
         }
     }
 

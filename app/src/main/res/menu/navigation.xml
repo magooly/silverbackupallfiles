@@ -17,6 +17,11 @@
         android:title="@string/action_display_currency"
         app:showAsAction="never" />
     <item
+        android:id="@+id/action_spot_favourites"
+        android:orderInCategory="102"
+        android:title="@string/spot_favourites"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_about"
         android:orderInCategory="103"
         android:title="@string/action_about"

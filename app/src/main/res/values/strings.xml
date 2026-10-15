@@ -1,9 +1,5 @@
 <resources>
     <string name="app_name">Metals &amp; Crypto Holdings</string>
-    <string name="today_price">Yesterdays Price</string>
-    <string name="price_updated_at">Updated: %1$s %2$s</string>
-    <string name="price_updated_cached_at">Updated: %1$s %2$s (cached)</string>
-    <string name="price_update_unavailable">Updated: unavailable</string>
     <string name="silver">Silver</string>
     <string name="copper">Copper</string>
     <string name="lead">Lead</string>
@@ -110,8 +106,6 @@
     <string name="shares_label">Shares</string>
     <string name="stock_shares_hint">For ASX stocks, enter the number of shares.</string>
     <string name="stock_source_label">Stock price source: EODHD %1$s</string>
-    <string name="silver_spot_price_per_oz">Silver Spot oz</string>
-    <string name="gold_spot_price_per_oz">Gold Spot oz</string>
     <string name="holding_value_by_item">Value of Holding by Item</string>
     <string name="total_value_all_items">Total Value\nall Items</string>
     <string name="version_display_format">Version %1$s</string>
@@ -123,6 +117,23 @@
     <string name="whole_dollars_only">Whole dollars only</string>
     <string name="press_back_again_to_exit">Press Back again to exit.</string>
     <string name="currency_value_unavailable">N/A</string>
+    <string name="spot_favourites">Spot-price favourites</string>
+    <string name="spot_prices_heading">Unit prices</string>
+    <string name="spot_favourites_title">Spot-price favourites (%1$d/6)</string>
+    <string name="spot_add_asset">Add asset</string>
+    <string name="spot_add_stock">Add ASX ticker</string>
+    <string name="spot_stock_hint">TLS or BHP</string>
+    <string name="spot_invalid_stock">Enter an ASX ticker of 2 to 5 letters or digits.</string>
+    <string name="spot_limit_or_duplicate">Already selected, or six favourites selected.</string>
+    <string name="spot_empty">No favourites selected</string>
+    <string name="spot_asset_unit">%1$s / %2$s</string>
+    <string name="spot_asset_kind">%1$s (%2$s)</string>
+    <string name="spot_move_up">Move %1$s up</string>
+    <string name="spot_move_down">Move %1$s down</string>
+    <string name="spot_remove">Remove %1$s</string>
+    <string name="spot_latest">Latest quote</string>
+    <string name="spot_cached">Cached quote</string>
+    <string name="spot_unavailable">Unavailable</string>
     <string-array name="display_currency_options">
         <item>AUD - Australian Dollar</item>
         <item>NZD - New Zealand Dollar</item>

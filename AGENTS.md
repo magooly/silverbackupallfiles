@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Updated: 14 October 2026. Plain-text companion: AGENTS.txt.
+Updated: 15 October 2026. Plain-text companion: AGENTS.txt.
 
 ## Scope
 - This is a single-module Android app (`:app`) using Java + XML views (no Kotlin, no Compose).
@@ -28,7 +28,8 @@ Updated: 14 October 2026. Plain-text companion: AGENTS.txt.
 - Page-one default formatting has two decimal places. Whole dollars only is a saved display preference; preserve independent AUD history formatting and full underlying calculations.
 - Preserve Shares metadata and canonical tickers on additions to existing stocks, including differently cased names. Different Other names must remain separate.
 - Most date/time values use dd-MM-yyyy and HH:mm:ss a; version history uses dd/MM/yyyy.
-- Gold/Silver are fixed rows; other holdings are dynamic. Screen-two values are quantities or base AUD totals, not selected-currency display amounts.
+- Gold/Silver holdings remain fixed rows; the top unit-price section uses up to six ordered SpotPriceFavourite assets saved in local preferences. Use typed IDs and explicit source currencies/units. Watch-only stock quotes must not reclassify Other holdings or populate portfolio classification caches. Favourite selection/order are not in holdings JSON backups.
+- Screen-two values are quantities or base AUD totals, not selected-currency display amounts.
 
 ## Integration And Platform Notes
 - Pricing API base URL: `https://api.metalcharts.org/` in `Retrofit/ApiHelperClass.java`.

@@ -984,6 +984,10 @@ public class ResListActivity extends AppCompatActivity {
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.navigation, menu);
+        MenuItem spotFavouritesItem = menu.findItem(R.id.action_spot_favourites);
+        if (spotFavouritesItem != null) {
+            spotFavouritesItem.setVisible(false);
+        }
         MenuItem darkModeItem = menu.findItem(R.id.action_dark_mode);
         if (darkModeItem != null) {
             boolean isDarkMode = getSharedPreferences(getString(R.string.app_name), MODE_PRIVATE)

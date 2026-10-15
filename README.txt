@@ -1,12 +1,14 @@
 # Metals & Crypto Holdings
 
-Updated: 14 October 2026. App version: 1.1.0 (versionCode 2).
+Updated: 15 October 2026. App version: 1.1.0 (versionCode 2).
 
 ## Features
 
-Android phone portfolio tracker, written in Java with XML views. Holdings are saved locally in SQLite. Page one shows Gold/Silver spot prices per ounce, holding values, and the portfolio total. Both spot quotes are requested even with no holdings.
+Android phone portfolio tracker, written in Java with XML views. Holdings are saved locally in SQLite. Page one shows up to six chosen unit-price favourites, holding values, and the portfolio total. Gold and Silver are the default favourites; their quotes remain requested even with no holdings.
 
-- Three-dot menu: Update Holding, Get Latest Prices, Display currency, Notes, Backup, Restore, Version History, and Dark mode.
+- Three-dot menu: Update Holding, Get Latest Prices, Display currency, Spot-price favourites, Notes, Backup, Restore, Version History, and Dark mode.
+- Spot-price favourites opens an ordered editor: Add asset, move up/down, remove, then Save. Cancel discards changes. Choose Gold, Silver, Platinum, Palladium, supported cryptocurrencies, or portfolio stocks; Add ASX ticker also accepts unowned stocks. At most six distinct assets can be saved, including an empty selection. Other/manual values and unverified base-metal units are excluded. Selection/order are stored locally, not included in holdings JSON backups.
+- Favourite rows show unit (oz/coin/share), Latest quote, Cached quote, or Unavailable, in the selected display currency/rounding. Saved selections refresh on opening and through Get Latest Prices; quotes are cached for offline display. Adding/removing favourites never adds or removes holdings.
 - Page-one Back shows "Press Back again to exit." Press again within two seconds to leave; the confirmation resets when you leave page one. Other screens and dialogs retain normal Back behavior.
 - Currency options: AUD, NZD, USD, GBP, EUR, CNY, and JPY. Whole dollars only rounds page-one displays; calculations, saved holdings, and history are unchanged. Settings apply immediately and persist; OK closes the dialog.
 - Page two supports Metals, Crypto, Stocks, and Other. Gold/Silver use item count, weight, and description; Silver supports oz/kg. Other metals use units, crypto uses coin amounts, stocks use shares, and Other uses a total AUD value.
