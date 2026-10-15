@@ -10,6 +10,8 @@ import android.os.Environment;
 import android.net.Uri;
 import android.text.Editable;
 import android.text.InputType;
+import android.text.method.LinkMovementMethod;
+import android.text.util.Linkify;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -66,6 +68,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ResListActivity extends AppCompatActivity {
+    public static final String EXTRA_OPEN_ABOUT_ON_LAUNCH = "com.projects.metalscrypto.holding.OPEN_ABOUT_ON_LAUNCH";
     private static final String TAG = "ResListActivity";
     private static final int REQUEST_WRITE_STORAGE = 112;
     private static final String TYPE_SILVER = "Silver";
@@ -95,11 +98,13 @@ public class ResListActivity extends AppCompatActivity {
     private float totalPrice;
     private String selectedWeightUnit = WEIGHT_UNIT_OZ;
     private String selectedPopupType = "";
+    private boolean returnToDashboardAfterAbout;
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        returnToDashboardAfterAbout = getIntent().getBooleanExtra(EXTRA_OPEN_ABOUT_ON_LAUNCH, false);
         setContentView(R.layout.activity_res_list);
 
         Toolbar toolbar = findViewById(R.id.toolbar);
@@ -114,6 +119,9 @@ public class ResListActivity extends AppCompatActivity {
 
         setUpViews();
         checkPermissions();
+        if (returnToDashboardAfterAbout) {
+            toolbar.post(this::showAboutDialog);
+        }
     }
 
     private void checkPermissions() {
@@ -715,6 +723,8 @@ public class ResListActivity extends AppCompatActivity {
             String backupStatusText = buildBackupStatusText();
             String displayText = aboutText
                     + "\n\n"
+                    + getString(R.string.licensing_notice)
+                    + "\n\n"
                     + metalsSourceText
                     + "\n"
                     + cryptoSourceText
@@ -730,7 +740,9 @@ public class ResListActivity extends AppCompatActivity {
             // Create a scrollable TextView to display the text
             ScrollView scrollView = new ScrollView(this);
             TextView textView = new TextView(this);
+            textView.setAutoLinkMask(Linkify.EMAIL_ADDRESSES | Linkify.WEB_URLS);
             textView.setText(displayText);
+            textView.setMovementMethod(LinkMovementMethod.getInstance());
             textView.setPadding(32, 32, 32, 32);
             textView.setTextSize(16);
             scrollView.addView(textView);
@@ -739,14 +751,24 @@ public class ResListActivity extends AppCompatActivity {
             AlertDialog dialog = new AlertDialog.Builder(this)
                     .setTitle("About")
                     .setView(scrollView)
-                    .setPositiveButton("Close", (d, which) -> d.dismiss())
+                    .setPositiveButton("Close", (d, which) -> {
+                        d.dismiss();
+                        finishIfOpenedFromDashboard();
+                    })
                     .setNegativeButton(getString(R.string.edit), (d, which) -> showEditAboutDialog(aboutText))
                     .setNeutralButton(getString(R.string.clear_api_log), (d, which) -> confirmClearApiErrorLog())
                     .create();
+            dialog.setOnCancelListener(d -> finishIfOpenedFromDashboard());
             dialog.show();
         } catch (IOException e) {
             Log.e(TAG, "Failed to show about dialog", e);
             Toast.makeText(this, "Error loading about information", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void finishIfOpenedFromDashboard() {
+        if (returnToDashboardAfterAbout) {
+            finish();
         }
     }
 
@@ -790,7 +812,8 @@ public class ResListActivity extends AppCompatActivity {
                 .setTitle(R.string.clear_api_log)
                 .setMessage(R.string.clear_api_log_confirm)
                 .setPositiveButton(R.string.delete, (dialog, which) -> clearApiErrorLog())
-                .setNegativeButton(R.string.cancel, null)
+                .setNegativeButton(R.string.cancel, (dialog, which) -> finishIfOpenedFromDashboard())
+                .setOnCancelListener(dialog -> finishIfOpenedFromDashboard())
                 .show();
     }
 
@@ -908,7 +931,10 @@ public class ResListActivity extends AppCompatActivity {
             String newText = input.getText().toString();
             saveAboutText(newText);
         });
-        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+        builder.setNegativeButton("Cancel", (dialog, which) -> {
+            dialog.cancel();
+            finishIfOpenedFromDashboard();
+        });
 
         builder.show();
     }

@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Updated: 15 October 2026. Plain-text companion: AGENTS.txt.
+Updated: 16 October 2026. Plain-text companion: AGENTS.txt.
 
 ## Scope
 - This is a single-module Android app (`:app`) using Java + XML views (no Kotlin, no Compose).
@@ -19,6 +19,8 @@ Updated: 15 October 2026. Plain-text companion: AGENTS.txt.
 - Offline fallback: `MainActivity.getAPIdata()` reads `SilverDB` by current date before calling network.
 - Totals: HoldingSummaryHelper aggregates HoldingItem.total string values as floats. CurrencyConverter handles conversion and missing quotes/rates. Missing held prices invalidate the grand total; empty positions are zero.
 - Gold/Silver spot prices are always tracked and prefer live quotes over cache. Newly added stocks request prices when page one reloads; existing quotes have manual refresh.
+- Dashboard layout: windows narrower than 600dp retain the six-favourite phone view. At 600dp or wider, page one defaults to an all-held-items table with an All items/Favourites selector. Its columns are Live price, Item, No., and Holding value; quantities show oz, shares, or coins, while value-only items show a dash. The selected wide view is remembered across fold/unfold width changes.
+- Market quote text is green/red relative to the previous successful lookup, with first/equal quotes neutral. This quote movement is separate from the daily portfolio-value trend and has light/dark theme colors.
 - BackupSyncManager auto-exports snapshots internally. BackupMergeFingerprint skips identical previously imported holdings payloads; changed snapshots may remain additive. Replace clears holdings before restore and is not transactional across all operations.
 - Add/edit path: `AddListActivity` and `ResListActivity.displayPopUp()` both write through `HoldingsDb` APIs.
 
@@ -26,6 +28,8 @@ Updated: 15 October 2026. Plain-text companion: AGENTS.txt.
 - Always normalize item names through `HoldingsDb.normalizeItemType(...)` before insert/update (supports aliases like `Ag`, `XAG`, `BTC`).
 - Numeric values are stored as `TEXT` in SQLite tables; UI formatting often uses `DecimalFormat("#,##0"|"#,##0.##")`.
 - Page-one default formatting has two decimal places. Whole dollars only is a saved display preference; preserve independent AUD history formatting and full underlying calculations.
+- Standard Portfolio Value trend compares the unrounded AUD total with the prior saved daily value; selected display currency and whole-dollar formatting must not affect it.
+- Market quote movement compares each asset's new unit price with its previous saved quote; do not compare converted holding values or mix this indicator with the daily portfolio trend.
 - Preserve Shares metadata and canonical tickers on additions to existing stocks, including differently cased names. Different Other names must remain separate.
 - Most date/time values use dd-MM-yyyy and HH:mm:ss a; version history uses dd/MM/yyyy.
 - Gold/Silver holdings remain fixed rows; the top unit-price section uses up to six ordered SpotPriceFavourite assets saved in local preferences. Use typed IDs and explicit source currencies/units. Watch-only stock quotes must not reclassify Other holdings or populate portfolio classification caches. Favourite selection/order are not in holdings JSON backups.

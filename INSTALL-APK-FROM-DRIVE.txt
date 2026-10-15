@@ -1,0 +1,24 @@
+INSTALLING PORTFOLIO HOLDINGS FROM GOOGLE DRIVE
+
+1. Open the email with the Google Drive link on your Android phone.
+
+2. Tap the link to open the shared file.
+
+3. Tap Download. If you see a preview, tap the three-dot menu, then tap
+   Download.
+
+4. When the download finishes, open the Files or My Files app.
+
+5. Open Downloads and tap Portfolio-Holdings-1.2.0.apk.
+
+6. If your phone asks for permission, tap Settings and turn on Allow from this
+   source. Go back and tap the APK file again.
+
+7. If you see Install anyway, tap it. Then tap Install.
+
+8. When installation finishes, tap Open.
+
+The app is now installed on your phone. You can find it in your app list.
+
+If you turned on Allow from this source in step 6, you can turn it off again
+in Settings under Install unknown apps.

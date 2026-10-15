@@ -61,6 +61,7 @@
     <color name="red_font10">#FFEBEE</color>
 
     //green font
+    <color name="market_price_up">#006400</color>
     <color name="green_font1">#1B5E20</color>
     <color name="green_font2">#2E7D32</color>
     <color name="green_font3">#388E3C</color>

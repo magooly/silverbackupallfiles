@@ -54,8 +54,8 @@ android {
         applicationId "com.projects.metalscrypto.holding.release2026"
         minSdkVersion 21
         targetSdkVersion 33
-        versionCode 2
-        versionName "1.1.0"
+        versionCode 3
+        versionName "1.2.0"
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
         buildConfigField "String", "TWELVE_DATA_API_KEY", "\"${twelveDataApiKey}\""
         buildConfigField "String", "ALPHA_VANTAGE_API_KEY", "\"${alphaVantageApiKey}\""

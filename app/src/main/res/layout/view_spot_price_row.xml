@@ -17,14 +17,10 @@
             android:id="@+id/spot_asset_label"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:ellipsize="end"
             android:textColor="@color/textview_text_color"
-            android:textSize="12sp" />
-        <TextView
-            android:id="@+id/spot_quote_status"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textColor="@color/textview_text_color"
-            android:textSize="12sp" />
+            android:textSize="11sp" />
     </LinearLayout>
 
     <TextView
@@ -44,11 +40,11 @@
         android:padding="6dp"
         android:maxLines="1"
         android:textColor="@color/textview_text_color"
-        android:textSize="16sp"
+        android:textSize="12sp"
         android:textStyle="bold"
         app:autoSizeTextType="uniform"
-        app:autoSizeMinTextSize="12sp"
-        app:autoSizeMaxTextSize="16sp"
+        app:autoSizeMinTextSize="10sp"
+        app:autoSizeMaxTextSize="12sp"
         app:autoSizeStepGranularity="1sp" />
     <TextView
         android:id="@+id/spot_currency_code"

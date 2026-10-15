@@ -1,16 +1,35 @@
 # Metals & Crypto Holdings
 
-Updated: 15 October 2026. App version: 1.1.0 (versionCode 2).
+Updated: 16 October 2026. App version: 1.2.0 (versionCode 3).
+
+## Licence And Contact
+
+Copyright (c) 2026 Wally Horsman. Licensing contact: wrhorsman@gmail.com.
+Original project material that the owner has the right to license is offered
+under PolyForm Noncommercial 1.0.0 in LICENSE.txt. Required notices are in
+NOTICE.txt. This is non-commercial source-available software, not unrestricted
+open-source software. The standard licence includes specified personal uses
+and uses by listed non-commercial organizations; see its full terms.
+
+Commercial use outside those permissions requires a separate written agreement
+with a negotiated fee before that use begins. See COMMERCIAL-LICENSING.md and
+COMMERCIAL-LICENSING.txt. Third-party code, assets, and market data retain their
+own licence terms. These terms do not revoke rights previously granted under
+other licences. The app bundles LICENSE.txt and NOTICE.txt and displays a
+licence/contact summary independently of editable Notes.
 
 ## Features
 
-Android phone portfolio tracker, written in Java with XML views. Holdings are saved locally in SQLite. Page one shows up to six chosen unit-price favourites, holding values, and the portfolio total. Gold and Silver are the default favourites; their quotes remain requested even with no holdings.
+Android portfolio tracker, written in Java with XML views. Holdings are saved locally in SQLite. On phone-width windows, page one shows up to six chosen unit-price favourites, holding values, and the portfolio total. On windows 600dp or wider, it defaults to an all-held-items table. Gold and Silver are the default favourites; their quotes remain requested even with no holdings.
 
 - Three-dot menu: Update Holding, Get Latest Prices, Display currency, Spot-price favourites, Notes, Backup, Restore, Version History, and Dark mode.
 - Spot-price favourites opens an ordered editor: Add asset, move up/down, remove, then Save. Cancel discards changes. Choose Gold, Silver, Platinum, Palladium, supported cryptocurrencies, or portfolio stocks; Add ASX ticker also accepts unowned stocks. At most six distinct assets can be saved, including an empty selection. Other/manual values and unverified base-metal units are excluded. Selection/order are stored locally, not included in holdings JSON backups.
-- Favourite rows show unit (oz/coin/share), Latest quote, Cached quote, or Unavailable, in the selected display currency/rounding. Saved selections refresh on opening and through Get Latest Prices; quotes are cached for offline display. Adding/removing favourites never adds or removes holdings.
+- The Live Market Prices heading is static. Compact favourite rows show their unit (oz/coin/share) and price in the selected display currency; if its conversion rate is unavailable, the saved price appears in its source currency. The last saved price is reused silently when offline. N/A appears only when no quote is available. Saved selections refresh on opening and through Get Latest Prices. Adding/removing favourites never adds or removes holdings.
+- On windows 600dp or wider, the All items/Favourites selector switches between an all-held-items table and the existing six-favourite view. The table columns are Live price, Item, No., and Holding value. No. shows held ounces, shares, or coin amounts; value-only Other items show a dash. The selected wide-screen view is remembered when a foldable changes width.
+- Live market-price text is green when a quote rises and red when it falls compared with the previous lookup. First-time and unchanged quotes use the normal text color. This is separate from the daily Portfolio Value trend; the quote colors also have light- and dark-theme variants.
 - Page-one Back shows "Press Back again to exit." Press again within two seconds to leave; the confirmation resets when you leave page one. Other screens and dialogs retain normal Back behavior.
 - Currency options: AUD, NZD, USD, GBP, EUR, CNY, and JPY. Whole dollars only rounds page-one displays; calculations, saved holdings, and history are unchanged. Settings apply immediately and persist; OK closes the dialog.
+- Standard Portfolio Value uses green/up or red/down to compare the unrounded AUD total with the previous saved daily value. It is neutral when unchanged or when no valid comparison is available; display currency and rounding do not affect the trend.
 - Page two supports Metals, Crypto, Stocks, and Other. Gold/Silver use item count, weight, and description; Silver supports oz/kg. Other metals use units, crypto uses coin amounts, stocks use shares, and Other uses a total AUD value.
 - Use uppercase ASX tickers on first entry, such as TLS or BHP. Subsequent additions recognize existing stocks case-insensitively, combine shares, and preserve ticker classification.
 - Different Other names remain separate. Adding the same non-detailed name increases its amount; Edit replaces it.

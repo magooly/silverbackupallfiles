@@ -1,0 +1,22 @@
+METALS & CRYPTO HOLDINGS
+
+Required Notice: Copyright (c) 2026 Wally Horsman. Contact: wrhorsman@gmail.com
+
+Original project material that Wally Horsman has the right to license is offered
+under the PolyForm Noncommercial License 1.0.0 in LICENSE.txt.
+
+This is non-commercial source-available software, not unrestricted open-source
+software. Commercial use outside the permissions granted by LICENSE.txt requires
+a separate written commercial licence with Wally Horsman. The permitted scope
+and fee must be negotiated and agreed before that commercial use begins.
+For commercial licensing enquiries, email wrhorsman@gmail.com.
+
+Third-party code, dependencies, assets, and market data remain governed by their
+own licences and provider terms. This notice does not claim ownership of them
+or grant rights the project owner does not hold. Preserve applicable third-party
+notices when redistributing the software. Existing rights already granted under
+other licences are not withdrawn by this notice.
+
+Read LICENSE.txt for the full permitted purposes and conditions, including its
+personal-use and non-commercial-organization provisions. The commercial notice
+does not restrict uses already permitted by those standard terms.

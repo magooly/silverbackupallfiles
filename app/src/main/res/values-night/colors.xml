@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="light_green">#121212</color>
+    <color name="market_price_up">#69F0AE</color>
     <color name="textview_text_color">#F1F3F5</color>
     <color name="edittext_text_color">#F1F3F5</color>
     <color name="button_text_color">#F1F3F5</color>

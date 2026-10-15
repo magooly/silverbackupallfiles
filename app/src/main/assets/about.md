@@ -1,10 +1,30 @@
 METALS & CRYPTO HOLDINGS - USER GUIDE
-App version 1.1.0 | Guide updated 15 October 2026
+App version 1.2.0 | Guide updated 16 October 2026
+
+LICENSING
+The Notes/About display includes the copyright, licence summary, and licensing
+contact independently of your editable Notes. Contact: wrhorsman@gmail.com.
+Original project material is offered under PolyForm Noncommercial 1.0.0 for its
+permitted purposes. Commercial uses outside those terms require a separately
+negotiated written licence and fee. Third-party material retains its own terms.
+The full licence and required notice are bundled as LICENSE.txt and NOTICE.txt.
 
 PAGE ONE
-The Unit prices section shows up to six favourites, independent of quantities
-you hold. Gold and Silver are the defaults, priced per ounce. Holding values
-below this section still use your actual saved quantities.
+On phone-width windows, Live Market Prices shows up to six favourites,
+independent of the quantities you hold. Gold and Silver are the defaults, priced
+per ounce. The heading is static. Holding values use your saved quantities.
+On windows 600dp or wider, page one defaults to an all-held-items table with
+columns Live price, Item, No., and Holding value. No. shows ounces, shares, or
+coin amounts; value-only items show a dash. Use the All items/Favourites
+selector to switch views. A foldable remembers the selected wide view when its
+width changes.
+Live quote text is green when its price rises and red when it falls compared
+with the previous lookup. First-time and unchanged quotes use the normal color.
+This is separate from the daily Standard Portfolio Value trend.
+Standard Portfolio Value compares the unrounded AUD total with the previous
+saved daily value: green/up means increased; red/down means decreased. Equal or
+unavailable comparisons are neutral. Currency selection and whole-dollar display
+rounding do not affect the comparison.
 
 SPOT-PRICE FAVOURITES
 Open the three-dot menu and select Spot-price favourites. Use Add asset to choose
@@ -14,9 +34,11 @@ the remove icon to remove a favourite, then Save. Cancel discards the edits.
 Select at most six distinct assets; removing all favourites is allowed.
 Selections and order are remembered locally, but are not in holdings JSON backups.
 Other/manual items and base metals with unverified quote units are excluded.
-Each row identifies oz, coin, or share and Latest quote, Cached quote, or
-Unavailable. Currency/whole-dollar settings apply. N/A means no usable quote or
-required FX rate. Saved selections refresh when opening online or using Get
+Each compact row identifies oz, coin, or share and shows its price in the
+selected currency. If its conversion rate is unavailable, the saved price
+appears in its source currency. The last saved price is reused silently when
+offline. N/A appears only when no quote is available. Currency/whole-dollar
+settings apply. Saved selections refresh when opening online or using Get
 Latest Prices. Favourites never create holdings or change saved quantities.
 
 Back on page one shows "Press Back again to exit." Press Back again within two
@@ -31,7 +53,8 @@ THREE-DOT MENU
 	not saved amounts, calculations, or history. Settings apply immediately and
 	are remembered; press OK to close the dialog.
 - Notes, Backup, Restore, Version History, and Dark mode are also available.
-	Page-one Notes currently opens page two; select Notes there to view/edit it.
+	Notes opens the Notes dialog directly from either page. Close it to return to
+	where you opened it; Edit changes your saved Notes.
 
 PAGE TWO
 - Metals: Gold/Silver use number of items, weight per item, and description.

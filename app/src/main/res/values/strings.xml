@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">Metals &amp; Crypto Holdings</string>
+    <string name="dashboard_title">Stocks, Crypto &amp; Metals</string>
     <string name="silver">Silver</string>
     <string name="copper">Copper</string>
     <string name="lead">Lead</string>
@@ -118,7 +119,31 @@
     <string name="press_back_again_to_exit">Press Back again to exit.</string>
     <string name="currency_value_unavailable">N/A</string>
     <string name="spot_favourites">Spot-price favourites</string>
-    <string name="spot_prices_heading">Unit prices</string>
+    <string name="spot_prices_heading">Live Market Prices</string>
+    <string name="dashboard_view_all_items">All items</string>
+    <string name="dashboard_view_favourites">Favourites</string>
+    <string name="all_items_heading">All Held Items</string>
+    <string name="all_items_column_item">Item</string>
+    <string name="all_items_column_market_price">Live price</string>
+    <string name="all_items_column_quantity">No.</string>
+    <string name="all_items_column_holding_value">Holding value</string>
+    <string name="all_items_empty">No holdings to display</string>
+    <string name="all_items_quantity_format">%1$s %2$s</string>
+    <string name="all_items_quantity_unavailable">-</string>
+    <string name="quantity_unit_ounces">oz</string>
+    <string name="quantity_unit_share">share</string>
+    <string name="quantity_unit_shares">shares</string>
+    <string name="quantity_unit_coin">coin</string>
+    <string name="quantity_unit_coins">coins</string>
+    <string name="standard_portfolio_value">Portfolio Value (%1$s)</string>
+    <string name="portfolio_value_trend_up">&#9650;</string>
+    <string name="portfolio_value_trend_down">&#9660;</string>
+    <string name="portfolio_value_trend_unchanged">&#8212;</string>
+    <string name="portfolio_value_trend_no_previous">&#8226;</string>
+    <string name="portfolio_value_trend_up_description">Increased since previous saved daily value</string>
+    <string name="portfolio_value_trend_down_description">Decreased since previous saved daily value</string>
+    <string name="portfolio_value_trend_unchanged_description">Unchanged since previous saved daily value</string>
+    <string name="portfolio_value_trend_no_previous_description">No previous portfolio value to compare</string>
     <string name="spot_favourites_title">Spot-price favourites (%1$d/6)</string>
     <string name="spot_add_asset">Add asset</string>
     <string name="spot_add_stock">Add ASX ticker</string>
@@ -131,9 +156,7 @@
     <string name="spot_move_up">Move %1$s up</string>
     <string name="spot_move_down">Move %1$s down</string>
     <string name="spot_remove">Remove %1$s</string>
-    <string name="spot_latest">Latest quote</string>
-    <string name="spot_cached">Cached quote</string>
-    <string name="spot_unavailable">Unavailable</string>
+    <string name="licensing_notice">Copyright &#169; 2026 Wally Horsman.\nPolyForm Noncommercial 1.0.0 (source-available).\nCommercial use outside its permitted purposes requires a separately negotiated written licence and fee.\nLicensing contact: wrhorsman@gmail.com\nFull terms: https://polyformproject.org/licenses/noncommercial/1.0.0.txt\nThird-party code, assets, and data retain their own licence terms.</string>
     <string-array name="display_currency_options">
         <item>AUD - Australian Dollar</item>
         <item>NZD - New Zealand Dollar</item>

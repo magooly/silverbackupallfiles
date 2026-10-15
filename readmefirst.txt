@@ -1,6 +1,6 @@
 ﻿README FIRST - Moving Silver project to another computer
 =======================================================
-Updated: 14 October 2026. Companion: readmefirst.md.
+Updated: 16 October 2026. Companion: readmefirst.md.
 1) What you need installed
 - Windows 10/11 (recommended)
 - Daemon configuration requests JetBrains JDK 21 (Gradle can download it online).
@@ -77,6 +77,14 @@ From C:\wrhor\SilverBackupAllFiles run:
   checkbox. These are display settings; saved holdings/history remain unchanged.
 - Gold/Silver spot quotes are per ounce regardless of holdings. New share tickers
   fetch prices when returning online; Get Latest Prices retries existing quotes.
+- On windows narrower than 600dp, page one keeps the six-favourite phone view.
+  At 600dp or wider, it defaults to an all-held-items table with columns Live
+  price, Item, No., and Holding value. No. shows ounces, shares, or coin amounts;
+  value-only items show a dash. The selector switches to Favourites and remembers
+  the wide-screen choice when a foldable changes width.
+- Live quote text turns green or red relative to the previous lookup; first-time
+  and unchanged quotes use the normal color. This is separate from the daily
+  Portfolio Value trend.
 - Use uppercase for new stocks (TLS, BHP). Existing-stock additions recognize
   case differences and combine shares. Different Other names stay separate.
 - Missing held quotes/required FX rates show N/A; Clear only dismisses the warning.

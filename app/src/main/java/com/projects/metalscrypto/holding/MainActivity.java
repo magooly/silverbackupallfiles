@@ -22,6 +22,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.RadioGroup;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -94,6 +95,10 @@ public class MainActivity extends AppCompatActivity {
     private static final String PREF_PRICE_NOTICE_DISMISSED = "pref_price_notice_dismissed";
     private static final String PREF_DISPLAY_CURRENCY = "pref_display_currency";
     private static final String PREF_WHOLE_DOLLARS_ONLY = "pref_whole_dollars_only";
+    private static final String PREF_WIDE_DASHBOARD_ALL_ITEMS = "pref_wide_dashboard_all_items";
+    private static final String PREF_PORTFOLIO_VALUE_DATE = "pref_portfolio_value_date";
+    private static final String PREF_PORTFOLIO_VALUE_CURRENT_AUD = "pref_portfolio_value_current_aud";
+    private static final String PREF_PORTFOLIO_VALUE_PREVIOUS_AUD = "pref_portfolio_value_previous_aud";
     private static final String PREF_SPOT_FAVOURITES = "pref_spot_favourites";
     private static final String PREF_SPOT_QUOTE_PREFIX = "spot_quote_";
     private static final String PREF_FX_UPDATED_AT = "pref_fx_updated_at";
@@ -133,6 +138,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private Context mContext;
+    private TextView tvPortfolioValueLabel, tvPortfolioValue, tvPortfolioValueCurrency, tvPortfolioValueTrend;
     private TextView tv_hld_slv_price_amount, tv_hld_gld_amount, tv_hld_ttl_amount, tvDate, tvPriceHeading,
             tvAppVersion, tvPriceNotice;
     private Button btnClearPriceNotice;
@@ -158,6 +164,9 @@ public class MainActivity extends AppCompatActivity {
     private boolean hasLoggedMissingMetalsApiKey = false;
     private boolean hasLoggedMissingStockApiKey = false;
     private LinearLayout llDynamicHoldings;
+    private LinearLayout allItemMarketHoldingRows;
+    private RadioGroup dashboardViewToggle;
+    private View spotFavouritesCard, holdingValuesCard, allItemsCard;
     private LinearLayout llPriceNotice;
     private final List<HoldingSummary> dynamicHoldings = new ArrayList<>();
     private final Map<String, Float> liveStockPrices = new HashMap<>();
@@ -172,6 +181,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean exchangeRateRequestInProgress;
     private final List<SpotPriceFavourite> spotFavourites = new ArrayList<>();
     private final Map<String, Float> latestSpotQuotes = new HashMap<>();
+    private final Map<String, PortfolioValueTrend.Direction> spotPriceMovements = new HashMap<>();
     private LinearLayout spotFavouritesContainer;
     private long lastExitBackAt = -1L;
     private Toast exitBackToast;
@@ -215,6 +225,7 @@ public class MainActivity extends AppCompatActivity {
         shouldNavigateToResList = false;
 
         setupViews();
+        setupDashboardViewMode();
         updateCurrencyLabels();
         VersionManager versionManager = new VersionManager(this);
         versionManager.checkAndUpdateVersion();
@@ -814,6 +825,10 @@ public class MainActivity extends AppCompatActivity {
         tv_hld_slv_price_amount = findViewById(R.id.tv_hld_slv_price_amount);
         tv_hld_gld_amount = findViewById(R.id.tv_hld_gld_amount);
         tv_hld_ttl_amount = findViewById(R.id.tv_hld_ttl_amount);
+        tvPortfolioValueLabel = findViewById(R.id.tv_portfolio_value_label);
+        tvPortfolioValue = findViewById(R.id.tv_portfolio_value);
+        tvPortfolioValueCurrency = findViewById(R.id.tv_portfolio_value_currency);
+        tvPortfolioValueTrend = findViewById(R.id.tv_portfolio_value_trend);
         tvPriceHeading = findViewById(R.id.tv_price_heading);
         spotFavouritesContainer = findViewById(R.id.spot_price_favourites_container);
         llDynamicHoldings = findViewById(R.id.ll_dynamic_holdings);
@@ -826,6 +841,7 @@ public class MainActivity extends AppCompatActivity {
         if (tvAppVersion != null) {
             tvAppVersion.setText(getString(R.string.version_display_format, BuildConfig.VERSION_NAME));
         }
+        updateSpotPricesHeading();
 
         updateThemeColors();
         if (btnClearPriceNotice != null) {
@@ -838,6 +854,44 @@ public class MainActivity extends AppCompatActivity {
         holdingsDb = new HoldingsDb(mContext);
         loadCachedStockPrices();
         loadCachedCryptoPrices();
+    }
+
+    private void setupDashboardViewMode() {
+        dashboardViewToggle = findViewById(R.id.dashboard_view_toggle);
+        spotFavouritesCard = findViewById(R.id.card_spot_favourites);
+        holdingValuesCard = findViewById(R.id.card_holding_values);
+        allItemsCard = findViewById(R.id.card_all_items);
+        allItemMarketHoldingRows = findViewById(R.id.all_item_market_holding_rows);
+
+        boolean largeWindow = getResources().getConfiguration().screenWidthDp >= 600;
+        if (!largeWindow) {
+            dashboardViewToggle.setVisibility(View.GONE);
+            applyDashboardView(false);
+            return;
+        }
+
+        dashboardViewToggle.setVisibility(View.VISIBLE);
+        boolean showAllItems = preferences.getBoolean(PREF_WIDE_DASHBOARD_ALL_ITEMS, true);
+        dashboardViewToggle.check(showAllItems
+                ? R.id.dashboard_view_all_items
+                : R.id.dashboard_view_favourites);
+        applyDashboardView(showAllItems);
+        dashboardViewToggle.setOnCheckedChangeListener((group, checkedId) -> {
+            if (checkedId != R.id.dashboard_view_all_items
+                    && checkedId != R.id.dashboard_view_favourites) {
+                return;
+            }
+            boolean allItemsSelected = checkedId == R.id.dashboard_view_all_items;
+            preferences.edit().putBoolean(PREF_WIDE_DASHBOARD_ALL_ITEMS, allItemsSelected).apply();
+            applyDashboardView(allItemsSelected);
+        });
+    }
+
+    private void applyDashboardView(boolean showAllItems) {
+        boolean useAllItemsView = getResources().getConfiguration().screenWidthDp >= 600 && showAllItems;
+        spotFavouritesCard.setVisibility(useAllItemsView ? View.GONE : View.VISIBLE);
+        holdingValuesCard.setVisibility(useAllItemsView ? View.GONE : View.VISIBLE);
+        allItemsCard.setVisibility(useAllItemsView ? View.VISIBLE : View.GONE);
     }
 
     private void refreshHoldingSummaries() {
@@ -905,15 +959,86 @@ public class MainActivity extends AppCompatActivity {
         tv_hld_slv_price_amount.setText(formatCurrencyValue(convertAudToDisplay(silverHoldingAud), priceFormat));
         tv_hld_gld_amount.setText(formatCurrencyValue(convertAudToDisplay(goldHoldingAud), priceFormat));
         renderDynamicHoldingRows(priceFormat);
+        renderAllItemMarketHoldingRows(priceFormat);
         Double totalDisplay = totalAvailable
                 ? CurrencyConverter.convert(totalHoldingAud, "AUD", displayCurrency, exchangeRatesFromUsd)
                 : null;
+        String portfolioAmount = totalDisplay == null
+                ? getString(R.string.currency_value_unavailable)
+                : currencySymbol(displayCurrency) + priceFormat.format(totalDisplay);
+        tvPortfolioValue.setText(portfolioAmount);
+        tvPortfolioValueCurrency.setText(displayCurrency);
+        tvPortfolioValueLabel.setText(getString(R.string.standard_portfolio_value,
+                new SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(new Date())));
+        updatePortfolioValueTrend(totalAvailable ? totalHoldingAud : null);
         tv_hld_ttl_amount.setText(formatCurrencyValue(totalDisplay, priceFormat));
         updatePriceNotice(current_silver_price, current_gold_price);
 
         if (lv_slv_amt > 0 && totalAvailable) {
             generateData(new DecimalFormat("#,##0.00").format(totalHoldingAud));
         }
+    }
+
+    private void updatePortfolioValueTrend(Double currentValueAud) {
+        PortfolioValueTrend.Direction direction = PortfolioValueTrend.Direction.NO_PREVIOUS;
+        if (currentValueAud != null && !Double.isNaN(currentValueAud) && !Double.isInfinite(currentValueAud)) {
+            String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
+            SharedPreferences.Editor trendEditor = preferences.edit();
+            if (!today.equals(preferences.getString(PREF_PORTFOLIO_VALUE_DATE, ""))) {
+                String lastValue = preferences.getString(PREF_PORTFOLIO_VALUE_CURRENT_AUD, null);
+                if (lastValue == null) {
+                    trendEditor.remove(PREF_PORTFOLIO_VALUE_PREVIOUS_AUD);
+                } else {
+                    trendEditor.putString(PREF_PORTFOLIO_VALUE_PREVIOUS_AUD, lastValue);
+                }
+                trendEditor.putString(PREF_PORTFOLIO_VALUE_DATE, today);
+            }
+
+            Double previousValueAud = null;
+            String previousText = preferences.getString(PREF_PORTFOLIO_VALUE_PREVIOUS_AUD, null);
+            if (previousText != null) {
+                try {
+                    previousValueAud = Double.parseDouble(previousText);
+                } catch (NumberFormatException e) {
+                    Log.w(TAG, "Ignoring invalid saved portfolio comparison value.", e);
+                }
+            }
+            direction = PortfolioValueTrend.compare(currentValueAud, previousValueAud);
+            trendEditor.putString(PREF_PORTFOLIO_VALUE_CURRENT_AUD, Double.toString(currentValueAud)).apply();
+        }
+
+        int colorResource;
+        int indicatorResource;
+        int descriptionResource;
+        switch (direction) {
+            case UP:
+                colorResource = R.color.green_font1;
+                indicatorResource = R.string.portfolio_value_trend_up;
+                descriptionResource = R.string.portfolio_value_trend_up_description;
+                break;
+            case DOWN:
+                colorResource = R.color.red_font2;
+                indicatorResource = R.string.portfolio_value_trend_down;
+                descriptionResource = R.string.portfolio_value_trend_down_description;
+                break;
+            case UNCHANGED:
+                colorResource = R.color.textview_text_color;
+                indicatorResource = R.string.portfolio_value_trend_unchanged;
+                descriptionResource = R.string.portfolio_value_trend_unchanged_description;
+                break;
+            default:
+                colorResource = R.color.textview_text_color;
+                indicatorResource = R.string.portfolio_value_trend_no_previous;
+                descriptionResource = R.string.portfolio_value_trend_no_previous_description;
+                break;
+        }
+        int color = ContextCompat.getColor(this, colorResource);
+        tvPortfolioValue.setTextColor(color);
+        tvPortfolioValueLabel.setTextColor(color);
+        tvPortfolioValueCurrency.setTextColor(color);
+        tvPortfolioValueTrend.setText(indicatorResource);
+        tvPortfolioValueTrend.setTextColor(color);
+        tvPortfolioValueTrend.setContentDescription(getString(descriptionResource));
     }
 
     private void renderDynamicHoldingRows(DecimalFormat formatter) {
@@ -941,6 +1066,132 @@ public class MainActivity extends AppCompatActivity {
 
             llDynamicHoldings.addView(row);
         }
+    }
+
+    private void renderAllItemMarketHoldingRows(DecimalFormat formatter) {
+        if (allItemMarketHoldingRows == null) {
+            return;
+        }
+        allItemMarketHoldingRows.removeAllViews();
+        List<HoldingSummary> summaries = new ArrayList<>();
+        if (silver_total > 0) {
+            summaries.add(new HoldingSummary(TYPE_SILVER, silver_total));
+        }
+        if (gold_total > 0) {
+            summaries.add(new HoldingSummary(TYPE_GOLD, gold_total));
+        }
+        summaries.addAll(dynamicHoldings);
+
+        if (summaries.isEmpty()) {
+            TextView empty = new TextView(this);
+            empty.setPadding(8, 12, 8, 12);
+            empty.setText(R.string.all_items_empty);
+            empty.setTextColor(ContextCompat.getColor(this, R.color.textview_text_color));
+            allItemMarketHoldingRows.addView(empty);
+            return;
+        }
+
+        LayoutInflater inflater = LayoutInflater.from(this);
+        for (HoldingSummary summary : summaries) {
+            View row = inflater.inflate(R.layout.view_all_item_market_holding_row,
+                    allItemMarketHoldingRows, false);
+            TextView item = row.findViewById(R.id.tv_all_item_name);
+            TextView marketSymbol = row.findViewById(R.id.tv_all_item_market_symbol);
+            TextView marketAmount = row.findViewById(R.id.tv_all_item_market_amount);
+            TextView marketCurrency = row.findViewById(R.id.tv_all_item_market_currency);
+            TextView quantity = row.findViewById(R.id.tv_all_item_quantity);
+            TextView holdingSymbol = row.findViewById(R.id.tv_all_item_holding_symbol);
+            TextView holdingAmount = row.findViewById(R.id.tv_all_item_holding_amount);
+            TextView holdingCurrency = row.findViewById(R.id.tv_all_item_holding_currency);
+
+            float marketPrice = getCurrentPriceByType(summary.itemType);
+            boolean hasMarketPrice = isApiLookupType(summary.itemType) && marketPrice > 0;
+            String sourceCurrency = getPriceCurrency(summary.itemType);
+            Double convertedMarketPrice = hasMarketPrice
+                    ? CurrencyConverter.convert(marketPrice, sourceCurrency, displayCurrency, exchangeRatesFromUsd)
+                    : null;
+            String marketDisplayCurrency = convertedMarketPrice == null && hasMarketPrice
+                    ? sourceCurrency
+                    : displayCurrency;
+            Double displayedMarketPrice = convertedMarketPrice;
+            if (displayedMarketPrice == null && hasMarketPrice) {
+                displayedMarketPrice = (double) marketPrice;
+            }
+            Double holdingValue = convertAudToDisplay(getHoldingValueInAud(summary));
+
+            item.setText(getAllItemsDisplayName(summary.itemType));
+            marketAmount.setText(formatCurrencyValue(displayedMarketPrice, formatter));
+            marketAmount.setTextColor(getSpotPriceMovementColor(getSpotFavouriteForType(summary.itemType)));
+            marketSymbol.setText(currencySymbol(marketDisplayCurrency));
+            marketCurrency.setText(marketDisplayCurrency);
+            quantity.setText(formatHeldQuantity(summary));
+            holdingAmount.setText(formatCurrencyValue(holdingValue, formatter));
+            holdingSymbol.setText(currencySymbol(displayCurrency));
+            holdingCurrency.setText(displayCurrency);
+            allItemMarketHoldingRows.addView(row);
+        }
+    }
+
+    private String formatHeldQuantity(HoldingSummary summary) {
+        String normalizedType = HoldingsDb.normalizeItemType(summary.itemType);
+        String unit;
+        if (isMetalType(normalizedType)) {
+            unit = getString(R.string.quantity_unit_ounces);
+        } else if (isStockLookupType(normalizedType) || HoldingsDb.isStockTicker(normalizedType)) {
+            unit = Math.abs(summary.totalUnits) == 1F
+                    ? getString(R.string.quantity_unit_share)
+                    : getString(R.string.quantity_unit_shares);
+        } else if (isCryptoLookupType(normalizedType)) {
+            unit = Math.abs(summary.totalUnits) == 1F
+                    ? getString(R.string.quantity_unit_coin)
+                    : getString(R.string.quantity_unit_coins);
+        } else {
+            return getString(R.string.all_items_quantity_unavailable);
+        }
+        DecimalFormat quantityFormat = new DecimalFormat("#,##0.####");
+        return getString(R.string.all_items_quantity_format,
+                quantityFormat.format(summary.totalUnits), unit);
+    }
+
+    private String getAllItemsDisplayName(String itemType) {
+        String normalizedType = HoldingsDb.normalizeItemType(itemType);
+        String unit = isMetalType(normalizedType) ? "oz"
+                : isStockLookupType(normalizedType) ? "share"
+                        : isCryptoLookupType(normalizedType) ? "coin" : null;
+        return unit == null ? itemType : getString(R.string.spot_asset_unit, itemType, unit);
+    }
+
+    private SpotPriceFavourite getSpotFavouriteForType(String itemType) {
+        String normalizedType = HoldingsDb.normalizeItemType(itemType);
+        for (SpotPriceFavourite favourite : spotFavourites) {
+            if (favourite.name.equalsIgnoreCase(normalizedType)) {
+                return favourite;
+            }
+        }
+        if (isMetalType(normalizedType)) {
+            return SpotPriceFavourite.metal(normalizedType);
+        }
+        if (isStockLookupType(normalizedType) || HoldingsDb.isStockTicker(normalizedType)) {
+            return SpotPriceFavourite.stock(normalizedType);
+        }
+        if (isCryptoLookupType(normalizedType)) {
+            String cryptoId = resolveCryptoId(normalizedType);
+            return cryptoId.isEmpty() ? null : SpotPriceFavourite.crypto(normalizedType, cryptoId);
+        }
+        return null;
+    }
+
+    private int getSpotPriceMovementColor(SpotPriceFavourite favourite) {
+        PortfolioValueTrend.Direction direction = favourite == null
+                ? PortfolioValueTrend.Direction.NO_PREVIOUS
+                : spotPriceMovements.get(favourite.id());
+        if (direction == PortfolioValueTrend.Direction.UP) {
+            return ContextCompat.getColor(this, R.color.market_price_up);
+        }
+        if (direction == PortfolioValueTrend.Direction.DOWN) {
+            return ContextCompat.getColor(this, R.color.red_font2);
+        }
+        return ContextCompat.getColor(this, R.color.textview_text_color);
     }
 
     private Double getHoldingValueInAud(HoldingSummary summary) {
@@ -1179,6 +1430,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showCachedPricesIndicator() {
+        updateSpotPricesHeading();
+    }
+
+    private void updateSpotPricesHeading() {
         if (tvPriceHeading != null) {
             tvPriceHeading.setText(R.string.spot_prices_heading);
         }
@@ -1214,7 +1469,9 @@ public class MainActivity extends AppCompatActivity {
             return true;
         }
         if (id == R.id.action_about) {
-            startActivity(new Intent(mContext, ResListActivity.class));
+            Intent intent = new Intent(mContext, ResListActivity.class);
+            intent.putExtra(ResListActivity.EXTRA_OPEN_ABOUT_ON_LAUNCH, true);
+            startActivity(intent);
             return true;
         }
         if (id == R.id.action_backup) {
@@ -1536,9 +1793,7 @@ public class MainActivity extends AppCompatActivity {
         Calendar calendar = Calendar.getInstance();
         SimpleDateFormat mdformat = new SimpleDateFormat("HH:mm:ss a", Locale.US);
         time = mdformat.format(calendar.getTime());
-        if (tvPriceHeading != null) {
-            tvPriceHeading.setText(R.string.spot_prices_heading);
-        }
+        updateSpotPricesHeading();
 
         if (slv_slv_price != null && !slv_slv_price.isEmpty()) {
             if (silverDB.getSilverData(date).isEmpty()) {
@@ -1727,8 +1982,16 @@ public class MainActivity extends AppCompatActivity {
 
     private void recordSpotQuote(SpotPriceFavourite favourite, float price) {
         if (favourite != null && price > 0 && !Float.isNaN(price) && !Float.isInfinite(price)) {
+            String quoteKey = PREF_SPOT_QUOTE_PREFIX + favourite.id();
+            Float previousPrice = latestSpotQuotes.get(favourite.id());
+            if (previousPrice == null) {
+                float savedPrice = preferences.getFloat(quoteKey, 0F);
+                previousPrice = savedPrice > 0 ? savedPrice : null;
+            }
+            spotPriceMovements.put(favourite.id(), PortfolioValueTrend.compare(
+                    (double) price, previousPrice == null ? null : (double) previousPrice));
             latestSpotQuotes.put(favourite.id(), price);
-            preferences.edit().putFloat(PREF_SPOT_QUOTE_PREFIX + favourite.id(), price).apply();
+            preferences.edit().putFloat(quoteKey, price).apply();
         }
     }
 
@@ -1750,18 +2013,21 @@ public class MainActivity extends AppCompatActivity {
             Double converted = price > 0
                     ? CurrencyConverter.convert(price, favourite.currency, displayCurrency, exchangeRatesFromUsd)
                     : null;
+            String rowCurrency = converted == null && price > 0 ? favourite.currency : displayCurrency;
+            Double displayedPrice = converted;
+            if (displayedPrice == null && price > 0) {
+                displayedPrice = (double) price;
+            }
             View row = getLayoutInflater().inflate(R.layout.view_spot_price_row, spotFavouritesContainer, false);
             TextView label = row.findViewById(R.id.spot_asset_label);
-            TextView status = row.findViewById(R.id.spot_quote_status);
             TextView amount = row.findViewById(R.id.spot_price_amount);
             TextView symbol = row.findViewById(R.id.spot_currency_symbol);
             TextView currency = row.findViewById(R.id.spot_currency_code);
             label.setText(getString(R.string.spot_asset_unit, favourite.name, favourite.unit));
-            status.setText(price <= 0 ? R.string.spot_unavailable
-                    : latest != null ? R.string.spot_latest : R.string.spot_cached);
-            amount.setText(formatCurrencyValue(converted, formatter));
-            symbol.setText(currencySymbol(displayCurrency));
-            currency.setText(displayCurrency);
+            amount.setText(formatCurrencyValue(displayedPrice, formatter));
+            amount.setTextColor(getSpotPriceMovementColor(favourite));
+            symbol.setText(currencySymbol(rowCurrency));
+            currency.setText(rowCurrency);
             spotFavouritesContainer.addView(row);
         }
     }
