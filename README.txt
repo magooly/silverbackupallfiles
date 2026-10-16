@@ -1,6 +1,6 @@
 # Metals & Crypto Holdings
 
-Updated: 16 October 2026. App version: 1.2.0 (versionCode 3).
+Updated: 16 October 2026. App version: 1.3.0 (versionCode 4).
 
 ## Licence And Contact
 
@@ -25,7 +25,8 @@ Android portfolio tracker, written in Java with XML views. Holdings are saved lo
 - Three-dot menu: Update Holding, Get Latest Prices, Display currency, Spot-price favourites, Notes, Backup, Restore, Version History, and Dark mode.
 - Spot-price favourites opens an ordered editor: Add asset, move up/down, remove, then Save. Cancel discards changes. Choose Gold, Silver, Platinum, Palladium, supported cryptocurrencies, or portfolio stocks; Add ASX ticker also accepts unowned stocks. At most six distinct assets can be saved, including an empty selection. Other/manual values and unverified base-metal units are excluded. Selection/order are stored locally, not included in holdings JSON backups.
 - The Live Market Prices heading is static. Compact favourite rows show their unit (oz/coin/share) and price in the selected display currency; if its conversion rate is unavailable, the saved price appears in its source currency. The last saved price is reused silently when offline. N/A appears only when no quote is available. Saved selections refresh on opening and through Get Latest Prices. Adding/removing favourites never adds or removes holdings.
-- On windows 600dp or wider, the All items/Favourites selector switches between an all-held-items table and the existing six-favourite view. The table columns are Live price, Item, No., and Holding value. No. shows held ounces, shares, or coin amounts; value-only Other items show a dash. The selected wide-screen view is remembered when a foldable changes width.
+- On windows 600dp or wider, the All items/Favourites selector switches between an all-held-items table and the existing six-favourite view. The table columns are Live price, Item, Number Held, and Holding value. Number Held shows ounces, shares, or coin amounts; value-only Other items show a dash. The selected wide-screen view is remembered when a foldable changes width.
+- On wide screens, the Portfolio Value box includes a compact 30-day graph at its left without increasing the box height. It uses saved daily unrounded AUD totals; missing dates are left blank, not interpolated. History accumulates as the app records values and is not reconstructed for earlier days.
 - Live market-price text is green when a quote rises and red when it falls compared with the previous lookup. First-time and unchanged quotes use the normal text color. This is separate from the daily Portfolio Value trend; the quote colors also have light- and dark-theme variants.
 - Page-one Back shows "Press Back again to exit." Press again within two seconds to leave; the confirmation resets when you leave page one. Other screens and dialogs retain normal Back behavior.
 - Currency options: AUD, NZD, USD, GBP, EUR, CNY, and JPY. Whole dollars only rounds page-one displays; calculations, saved holdings, and history are unchanged. Settings apply immediately and persist; OK closes the dialog.

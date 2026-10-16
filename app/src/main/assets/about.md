@@ -1,5 +1,5 @@
 METALS & CRYPTO HOLDINGS - USER GUIDE
-App version 1.2.0 | Guide updated 16 October 2026
+App version 1.3.0 | Guide updated 16 October 2026
 
 LICENSING
 The Notes/About display includes the copyright, licence summary, and licensing
@@ -14,13 +14,18 @@ On phone-width windows, Live Market Prices shows up to six favourites,
 independent of the quantities you hold. Gold and Silver are the defaults, priced
 per ounce. The heading is static. Holding values use your saved quantities.
 On windows 600dp or wider, page one defaults to an all-held-items table with
-columns Live price, Item, No., and Holding value. No. shows ounces, shares, or
-coin amounts; value-only items show a dash. Use the All items/Favourites
+columns Live price, Item, Number Held, and Holding value. Number Held shows
+ounces, shares, or coin amounts; value-only items show a dash. Use the All items/Favourites
 selector to switch views. A foldable remembers the selected wide view when its
 width changes.
 Live quote text is green when its price rises and red when it falls compared
 with the previous lookup. First-time and unchanged quotes use the normal color.
 This is separate from the daily Standard Portfolio Value trend.
+On wide screens, a compact 30-day graph appears to the left of the Portfolio
+Value summary without increasing its height. It uses saved daily unrounded AUD
+totals. Dates without a valid saved value are left blank, not interpolated.
+History accumulates as the app records values and does not recreate earlier
+days.
 Standard Portfolio Value compares the unrounded AUD total with the previous
 saved daily value: green/up means increased; red/down means decreased. Equal or
 unavailable comparisons are neutral. Currency selection and whole-dollar display

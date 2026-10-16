@@ -79,9 +79,13 @@ From C:\wrhor\SilverBackupAllFiles run:
   fetch prices when returning online; Get Latest Prices retries existing quotes.
 - On windows narrower than 600dp, page one keeps the six-favourite phone view.
   At 600dp or wider, it defaults to an all-held-items table with columns Live
-  price, Item, No., and Holding value. No. shows ounces, shares, or coin amounts;
+  price, Item, Number Held, and Holding value. Number Held shows ounces, shares,
+  or coin amounts;
   value-only items show a dash. The selector switches to Favourites and remembers
   the wide-screen choice when a foldable changes width.
+- On wide screens, the Portfolio Value box includes a small 30-day graph without
+  increasing its height. It uses saved daily AUD totals and leaves missing dates
+  blank. History starts accumulating as the app records values.
 - Live quote text turns green or red relative to the previous lookup; first-time
   and unchanged quotes use the normal color. This is separate from the daily
   Portfolio Value trend.

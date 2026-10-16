@@ -122,10 +122,9 @@
     <string name="spot_prices_heading">Live Market Prices</string>
     <string name="dashboard_view_all_items">All items</string>
     <string name="dashboard_view_favourites">Favourites</string>
-    <string name="all_items_heading">All Held Items</string>
     <string name="all_items_column_item">Item</string>
     <string name="all_items_column_market_price">Live price</string>
-    <string name="all_items_column_quantity">No.</string>
+    <string name="all_items_column_quantity">Number Held</string>
     <string name="all_items_column_holding_value">Holding value</string>
     <string name="all_items_empty">No holdings to display</string>
     <string name="all_items_quantity_format">%1$s %2$s</string>
@@ -144,6 +143,7 @@
     <string name="portfolio_value_trend_down_description">Decreased since previous saved daily value</string>
     <string name="portfolio_value_trend_unchanged_description">Unchanged since previous saved daily value</string>
     <string name="portfolio_value_trend_no_previous_description">No previous portfolio value to compare</string>
+    <string name="portfolio_value_history_description">Portfolio value over the last 30 days; missing dates are left blank</string>
     <string name="spot_favourites_title">Spot-price favourites (%1$d/6)</string>
     <string name="spot_add_asset">Add asset</string>
     <string name="spot_add_stock">Add ASX ticker</string>

@@ -99,6 +99,8 @@ public class MainActivity extends AppCompatActivity {
     private static final String PREF_PORTFOLIO_VALUE_DATE = "pref_portfolio_value_date";
     private static final String PREF_PORTFOLIO_VALUE_CURRENT_AUD = "pref_portfolio_value_current_aud";
     private static final String PREF_PORTFOLIO_VALUE_PREVIOUS_AUD = "pref_portfolio_value_previous_aud";
+    private static final String PREF_PORTFOLIO_VALUE_HISTORY_PREFIX = "pref_portfolio_value_history_";
+    private static final int PORTFOLIO_VALUE_HISTORY_DAYS = 30;
     private static final String PREF_SPOT_FAVOURITES = "pref_spot_favourites";
     private static final String PREF_SPOT_QUOTE_PREFIX = "spot_quote_";
     private static final String PREF_FX_UPDATED_AT = "pref_fx_updated_at";
@@ -139,6 +141,8 @@ public class MainActivity extends AppCompatActivity {
 
     private Context mContext;
     private TextView tvPortfolioValueLabel, tvPortfolioValue, tvPortfolioValueCurrency, tvPortfolioValueTrend;
+    private View portfolioValueSummary;
+    private PortfolioValueSparklineView portfolioValueSparkline;
     private TextView tv_hld_slv_price_amount, tv_hld_gld_amount, tv_hld_ttl_amount, tvDate, tvPriceHeading,
             tvAppVersion, tvPriceNotice;
     private Button btnClearPriceNotice;
@@ -829,6 +833,10 @@ public class MainActivity extends AppCompatActivity {
         tvPortfolioValue = findViewById(R.id.tv_portfolio_value);
         tvPortfolioValueCurrency = findViewById(R.id.tv_portfolio_value_currency);
         tvPortfolioValueTrend = findViewById(R.id.tv_portfolio_value_trend);
+        portfolioValueSummary = findViewById(R.id.portfolio_value_summary);
+        portfolioValueSparkline = findViewById(R.id.portfolio_value_sparkline);
+        portfolioValueSparkline.setVisibility(
+                getResources().getConfiguration().screenWidthDp >= 600 ? View.VISIBLE : View.GONE);
         tvPriceHeading = findViewById(R.id.tv_price_heading);
         spotFavouritesContainer = findViewById(R.id.spot_price_favourites_container);
         llDynamicHoldings = findViewById(R.id.ll_dynamic_holdings);
@@ -983,6 +991,8 @@ public class MainActivity extends AppCompatActivity {
         PortfolioValueTrend.Direction direction = PortfolioValueTrend.Direction.NO_PREVIOUS;
         if (currentValueAud != null && !Double.isNaN(currentValueAud) && !Double.isInfinite(currentValueAud)) {
             String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
+            String previousValueDate = preferences.getString(PREF_PORTFOLIO_VALUE_DATE, "");
+            String previousSavedValue = preferences.getString(PREF_PORTFOLIO_VALUE_CURRENT_AUD, null);
             SharedPreferences.Editor trendEditor = preferences.edit();
             if (!today.equals(preferences.getString(PREF_PORTFOLIO_VALUE_DATE, ""))) {
                 String lastValue = preferences.getString(PREF_PORTFOLIO_VALUE_CURRENT_AUD, null);
@@ -1005,40 +1015,114 @@ public class MainActivity extends AppCompatActivity {
             }
             direction = PortfolioValueTrend.compare(currentValueAud, previousValueAud);
             trendEditor.putString(PREF_PORTFOLIO_VALUE_CURRENT_AUD, Double.toString(currentValueAud)).apply();
+            recordPortfolioValueHistory(today, previousValueDate, previousSavedValue, currentValueAud);
         }
 
-        int colorResource;
+        int backgroundResource;
         int indicatorResource;
         int descriptionResource;
         switch (direction) {
             case UP:
-                colorResource = R.color.green_font1;
+                backgroundResource = R.color.portfolio_value_background_up;
                 indicatorResource = R.string.portfolio_value_trend_up;
                 descriptionResource = R.string.portfolio_value_trend_up_description;
                 break;
             case DOWN:
-                colorResource = R.color.red_font2;
+                backgroundResource = R.color.portfolio_value_background_down;
                 indicatorResource = R.string.portfolio_value_trend_down;
                 descriptionResource = R.string.portfolio_value_trend_down_description;
                 break;
             case UNCHANGED:
-                colorResource = R.color.textview_text_color;
+                backgroundResource = R.color.portfolio_value_background_neutral;
                 indicatorResource = R.string.portfolio_value_trend_unchanged;
                 descriptionResource = R.string.portfolio_value_trend_unchanged_description;
                 break;
             default:
-                colorResource = R.color.textview_text_color;
+                backgroundResource = R.color.portfolio_value_background_neutral;
                 indicatorResource = R.string.portfolio_value_trend_no_previous;
                 descriptionResource = R.string.portfolio_value_trend_no_previous_description;
                 break;
         }
-        int color = ContextCompat.getColor(this, colorResource);
-        tvPortfolioValue.setTextColor(color);
-        tvPortfolioValueLabel.setTextColor(color);
-        tvPortfolioValueCurrency.setTextColor(color);
+        portfolioValueSummary.setBackgroundColor(ContextCompat.getColor(this, backgroundResource));
+        tvPortfolioValue.setTextColor(Color.BLACK);
+        tvPortfolioValueLabel.setTextColor(Color.BLACK);
+        tvPortfolioValueCurrency.setTextColor(Color.BLACK);
         tvPortfolioValueTrend.setText(indicatorResource);
-        tvPortfolioValueTrend.setTextColor(color);
+        tvPortfolioValueTrend.setTextColor(Color.BLACK);
         tvPortfolioValueTrend.setContentDescription(getString(descriptionResource));
+        updatePortfolioValueHistoryGraph();
+    }
+
+    private void recordPortfolioValueHistory(String today, String previousDate, String previousValue,
+            Double currentValueAud) {
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+        Calendar firstDay = Calendar.getInstance();
+        firstDay.set(Calendar.HOUR_OF_DAY, 0);
+        firstDay.set(Calendar.MINUTE, 0);
+        firstDay.set(Calendar.SECOND, 0);
+        firstDay.set(Calendar.MILLISECOND, 0);
+        firstDay.add(Calendar.DAY_OF_YEAR, -(PORTFOLIO_VALUE_HISTORY_DAYS - 1));
+        String firstDate = dateFormat.format(firstDay.getTime());
+
+        SharedPreferences.Editor historyEditor = preferences.edit();
+        if (previousDate != null && !previousDate.equals(today)
+                && previousDate.compareTo(firstDate) >= 0 && isValidPortfolioHistoryValue(previousValue)) {
+            historyEditor.putString(PREF_PORTFOLIO_VALUE_HISTORY_PREFIX + previousDate, previousValue);
+        }
+        historyEditor.putString(PREF_PORTFOLIO_VALUE_HISTORY_PREFIX + today,
+                Double.toString(currentValueAud));
+
+        for (String key : preferences.getAll().keySet()) {
+            if (!key.startsWith(PREF_PORTFOLIO_VALUE_HISTORY_PREFIX)) {
+                continue;
+            }
+            String savedDate = key.substring(PREF_PORTFOLIO_VALUE_HISTORY_PREFIX.length());
+            if (savedDate.compareTo(firstDate) < 0 || savedDate.compareTo(today) > 0) {
+                historyEditor.remove(key);
+            }
+        }
+        historyEditor.apply();
+    }
+
+    private boolean isValidPortfolioHistoryValue(String value) {
+        if (value == null) {
+            return false;
+        }
+        try {
+            double parsed = Double.parseDouble(value);
+            return !Double.isNaN(parsed) && !Double.isInfinite(parsed);
+        } catch (NumberFormatException exception) {
+            return false;
+        }
+    }
+
+    private void updatePortfolioValueHistoryGraph() {
+        if (portfolioValueSparkline == null) {
+            return;
+        }
+        float[] values = new float[PORTFOLIO_VALUE_HISTORY_DAYS];
+        boolean[] hasValue = new boolean[PORTFOLIO_VALUE_HISTORY_DAYS];
+        Calendar day = Calendar.getInstance();
+        day.set(Calendar.HOUR_OF_DAY, 0);
+        day.set(Calendar.MINUTE, 0);
+        day.set(Calendar.SECOND, 0);
+        day.set(Calendar.MILLISECOND, 0);
+        day.add(Calendar.DAY_OF_YEAR, -(PORTFOLIO_VALUE_HISTORY_DAYS - 1));
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+
+        for (int index = 0; index < PORTFOLIO_VALUE_HISTORY_DAYS; index++) {
+            String key = PREF_PORTFOLIO_VALUE_HISTORY_PREFIX + dateFormat.format(day.getTime());
+            String savedValue = preferences.getString(key, null);
+            if (isValidPortfolioHistoryValue(savedValue)) {
+                double parsed = Double.parseDouble(savedValue);
+                if (Math.abs(parsed) <= Float.MAX_VALUE) {
+                    values[index] = (float) parsed;
+                    hasValue[index] = true;
+                }
+            }
+            day.add(Calendar.DAY_OF_YEAR, 1);
+        }
+        portfolioValueSparkline.setDailyValues(values, hasValue);
     }
 
     private void renderDynamicHoldingRows(DecimalFormat formatter) {
