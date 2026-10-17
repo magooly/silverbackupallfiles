@@ -71,6 +71,10 @@ public class ResListActivity extends AppCompatActivity {
     public static final String EXTRA_OPEN_ABOUT_ON_LAUNCH = "com.projects.metalscrypto.holding.OPEN_ABOUT_ON_LAUNCH";
     private static final String TAG = "ResListActivity";
     private static final int REQUEST_WRITE_STORAGE = 112;
+    private static final int REQUEST_DRIVE_BACKUP_FOLDER = 113;
+    private static final int DRIVE_ACTION_NONE = 0;
+    private static final int DRIVE_ACTION_BACKUP = 1;
+    private static final int DRIVE_ACTION_RESTORE = 2;
     private static final String TYPE_SILVER = "Silver";
     private static final String TYPE_GOLD = "Gold";
     private static final String WEIGHT_UNIT_OZ = "oz";
@@ -98,6 +102,7 @@ public class ResListActivity extends AppCompatActivity {
     private float totalPrice;
     private String selectedWeightUnit = WEIGHT_UNIT_OZ;
     private String selectedPopupType = "";
+    private int pendingDriveAction = DRIVE_ACTION_NONE;
     private boolean returnToDashboardAfterAbout;
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
 
@@ -442,7 +447,6 @@ public class ResListActivity extends AppCompatActivity {
                     .setMessage("Are you sure you want to delete this " + itemType + " item?")
                     .setPositiveButton("Delete", (deleteDialog, which) -> {
                         if (deleteHoldingItem(id, itemType, no, weight, selectedWeightUnit, what, total)) {
-                            BackupSyncManager.exportSnapshot(this);
                             Toast.makeText(mContext, itemType + " item deleted successfully.", Toast.LENGTH_SHORT)
                                     .show();
                             deleteDialog.dismiss();
@@ -556,7 +560,6 @@ public class ResListActivity extends AppCompatActivity {
             boolean update = holdingsDb.updateData(id, itemType, no, weight, what, total, date, time,
                     normalizedWeightUnit);
             if (update) {
-                BackupSyncManager.exportSnapshot(this);
                 Toast.makeText(mContext, itemType + " data updated successfully.", Toast.LENGTH_SHORT).show();
                 dialog.dismiss();
             } else {
@@ -583,11 +586,15 @@ public class ResListActivity extends AppCompatActivity {
             return true;
         }
         if (id == R.id.action_backup) {
-            promptForBackupFileName(false);
+            startDriveBackup();
             return true;
         }
         if (id == R.id.action_restore) {
-            showAvailableBackupsForRestore();
+            startDriveRestore();
+            return true;
+        }
+        if (id == R.id.action_drive_backup_folder) {
+            requestDriveBackupFolder(DRIVE_ACTION_NONE);
             return true;
         }
         if (id == R.id.action_dark_mode) {
@@ -604,6 +611,73 @@ public class ResListActivity extends AppCompatActivity {
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    private void startDriveBackup() {
+        if (!DriveBackupManager.hasSavedTreeUri(this)) {
+            requestDriveBackupFolder(DRIVE_ACTION_BACKUP);
+            return;
+        }
+        performDriveBackup();
+    }
+
+    private void performDriveBackup() {
+        ioExecutor.execute(() -> {
+            BackupSyncManager.BackupResult result = BackupSyncManager.exportSnapshotResult(this);
+            runOnUiThread(() -> Toast.makeText(this, result.getMessage(), Toast.LENGTH_LONG).show());
+        });
+    }
+
+    private void startDriveRestore() {
+        if (!DriveBackupManager.hasSavedTreeUri(this)) {
+            requestDriveBackupFolder(DRIVE_ACTION_RESTORE);
+            return;
+        }
+        showAvailableBackupsForRestore();
+    }
+
+    private void requestDriveBackupFolder(int pendingAction) {
+        pendingDriveAction = pendingAction;
+        Toast.makeText(this, R.string.drive_folder_picker_hint, Toast.LENGTH_LONG).show();
+        startActivityForResult(DriveBackupManager.createFolderPickerIntent(), REQUEST_DRIVE_BACKUP_FOLDER);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_DRIVE_BACKUP_FOLDER) {
+            return;
+        }
+        int requestedAction = pendingDriveAction;
+        pendingDriveAction = DRIVE_ACTION_NONE;
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) {
+            Toast.makeText(this, R.string.drive_folder_not_selected, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        try {
+            int grantFlags = data.getFlags()
+                    & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            DriveBackupManager.saveTreeUri(this, data.getData(), grantFlags);
+            String folderError = DriveBackupManager.prepareProjectFolder(this);
+            if (folderError != null) {
+                Toast.makeText(this, getString(R.string.backup_failed, folderError), Toast.LENGTH_LONG).show();
+                return;
+            }
+        } catch (Exception exception) {
+            Log.e(TAG, "Failed to access the selected Drive folder", exception);
+            String message = exception.getMessage() == null ? getString(R.string.drive_folder_unavailable)
+                    : exception.getMessage();
+            Toast.makeText(this, getString(R.string.backup_failed, message), Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        Toast.makeText(this, R.string.drive_folder_ready, Toast.LENGTH_SHORT).show();
+        if (requestedAction == DRIVE_ACTION_BACKUP) {
+            performDriveBackup();
+        } else if (requestedAction == DRIVE_ACTION_RESTORE) {
+            showAvailableBackupsForRestore();
+        }
     }
 
     private void promptForBackupFileName(boolean restore) {
@@ -660,8 +734,12 @@ public class ResListActivity extends AppCompatActivity {
         }
 
         String[] backupNames = availableBackups.toArray(new String[0]);
+        View titleView = getLayoutInflater().inflate(R.layout.view_restore_backup_title,
+                (android.view.ViewGroup) findViewById(android.R.id.content), false);
+        TextView locations = titleView.findViewById(R.id.restore_backup_locations);
+        locations.setText(BackupSyncManager.getRestoreFolderLocations(this));
         new AlertDialog.Builder(this)
-                .setTitle(R.string.restore_select_backup)
+                .setCustomTitle(titleView)
                 .setItems(backupNames, (dialog, which) -> showRestoreModeDialog(backupNames[which]))
                 .setPositiveButton(R.string.restore_enter_filename, (dialog, which) -> promptForBackupFileName(true))
                 .setNegativeButton(R.string.cancel, null)
@@ -687,8 +765,8 @@ public class ResListActivity extends AppCompatActivity {
             return;
         }
         ioExecutor.execute(() -> {
-            BackupSyncManager.BackupResult restoreResult = BackupSyncManager.restoreNowResult(this, backupFileName,
-                    mode);
+            BackupSyncManager.BackupResult restoreResult = BackupSyncManager.restoreNowResult(
+                    this, backupFileName, mode);
             runOnUiThread(() -> {
                 if (!restoreResult.isSuccess()) {
                     Toast.makeText(this, getString(R.string.restore_failed, restoreResult.getMessage()),
@@ -714,7 +792,15 @@ public class ResListActivity extends AppCompatActivity {
         try {
             String aboutText = readAboutFile();
             String metalsSourceText = getString(R.string.metals_source_label,
-                    formatSourceHost(ApiHelperClass.BASE_URL));
+                    MarketDataProviders.USE_KEYLESS_METALS ? "Gold-API" : "MetalCharts",
+                    formatSourceHost(MarketDataProviders.USE_KEYLESS_METALS
+                            ? MarketDataProviders.METALS_URL
+                            : ApiHelperClass.BASE_URL));
+            String fxSourceText = getString(R.string.fx_source_label,
+                    MarketDataProviders.USE_KEYLESS_FX ? "Frankfurter" : "MetalCharts",
+                    formatSourceHost(MarketDataProviders.USE_KEYLESS_FX
+                            ? MarketDataProviders.FX_URL
+                            : ApiHelperClass.BASE_URL));
             String apiErrorLog = readApiErrorLog();
             String cryptoSourceText = getString(R.string.crypto_source_label,
                     formatSourceHost(CryptoApiHelperClass.BASE_URL));
@@ -726,6 +812,8 @@ public class ResListActivity extends AppCompatActivity {
                     + getString(R.string.licensing_notice)
                     + "\n\n"
                     + metalsSourceText
+                    + "\n"
+                    + fxSourceText
                     + "\n"
                     + cryptoSourceText
                     + "\n"
@@ -967,8 +1055,6 @@ public class ResListActivity extends AppCompatActivity {
                 // For Android 10+, we only use internal storage
                 Toast.makeText(this, "About text saved", Toast.LENGTH_SHORT).show();
             }
-
-            BackupSyncManager.exportSnapshot(this);
 
             showAboutDialog();
         } catch (IOException e) {

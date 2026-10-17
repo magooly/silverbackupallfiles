@@ -47,10 +47,16 @@ From C:\wrhor\SilverBackupAllFiles run:
 - Verify signatures with the SDK build-tools/apksigner.bat verify command.
 8) Data/backup notes
 - App has backup/restore in the 3-dot menus on pages one and two.
-- Automatic snapshots are internal. Manual public export may be restricted by
-  Android scoped storage. Check the result and keep an accessible copy.
-- Backup JSON file path (device):
-  Documents\SilverHolding\holdings_backup.json
+- Backups are manual only. Choose Backup to save internally and, after choosing
+  the Silver Project folder, update GFS snapshots there:
+  7 daily Son, 4 weekly Father, and 12 monthly Grandfather files. Restore lists
+  only the displayed folder and supports Merge or Replace. If no folder is
+  configured, it lists app-private backups instead. Other locations are not used.
+- Opening the app and editing holdings or Notes do not create backups. Restore
+  is also manual; no backup is automatically imported on startup.
+- Backups include holdings, Notes text, lookup preferences, and 30-day portfolio
+  history. Missing history dates are not interpolated. Public export may also be
+  attempted at Documents\SilverHolding, but Android storage rules can block it.
 - Merge adds incoming non-detailed amounts; identical holdings payloads previously
   applied are skipped. A changed snapshot can add amounts again. Replace deletes
   existing holdings first; preserve a separate backup before using it.
@@ -64,8 +70,12 @@ From C:\wrhor\SilverBackupAllFiles run:
 10) Security reminder
 - This folder may contain signing files/password references.
 - Keep keystore and keystore.properties private.
-- Configure METALCHARTS_API_KEY and EODHD_API_KEY separately via local.properties
-  or environment variables. SDK example: sdk.dir=C:/Users/YourUser/AppData/Local/Android/Sdk
+- Default metals (Gold/Silver/Platinum/Palladium) and FX feeds are keyless.
+  Stocks still use EODHD_API_KEY. For rollback, set USE_KEYLESS_METALS and/or
+  USE_KEYLESS_FX false in MarketDataProviders.java, rebuild, and configure
+  METALCHARTS_API_KEY via local.properties or environment. Existing MetalCharts
+  methods and Retrofit code remain intact with switch-back comments.
+  SDK example: sdk.dir=C:/Users/YourUser/AppData/Local/Android/Sdk
 - Never commit local.properties, signing files, or passwords. APKs may embed keys.
 
 11) Current help and features
@@ -76,7 +86,10 @@ From C:\wrhor\SilverBackupAllFiles run:
 - Page one supports seven display currencies and a remembered Whole dollars only
   checkbox. These are display settings; saved holdings/history remain unchanged.
 - Gold/Silver spot quotes are per ounce regardless of holdings. New share tickers
-  fetch prices when returning online; Get Latest Prices retries existing quotes.
+  fetch their first quote online. Metals, FX, and each stock/crypto asset allow
+  one successful update per calendar day, including through Get Latest Prices.
+  Failed lookups reuse saved quotes/rates and respect cooldowns. Manual spot-price
+  entry is removed; old overrides are cleared without changing holdings.
 - On windows narrower than 600dp, page one keeps the six-favourite phone view.
   At 600dp or wider, it defaults to an all-held-items table with columns Live
   price, Item, Number Held, and Holding value. Number Held shows ounces, shares,

@@ -320,7 +320,6 @@ public class AddListActivity extends AppCompatActivity {
         }
 
         if (success) {
-            BackupSyncManager.exportSnapshot(this);
             Toast.makeText(mContext, itemType + " data saved successfully.", Toast.LENGTH_SHORT).show();
             finish();
         } else {

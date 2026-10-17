@@ -80,7 +80,8 @@
     <string name="api_error_log_cleared">API error log cleared.</string>
     <string name="api_error_log_clear_failed">Could not clear API error log.</string>
     <string name="edit">Edit</string>
-    <string name="metals_source_label">Metals price source: MetalpriceAPI %1$s</string>
+    <string name="metals_source_label">Metals price source: %1$s (%2$s)</string>
+    <string name="fx_source_label">Exchange-rate source: %1$s (%2$s)</string>
     <string name="crypto_source_label">Crypto price source: CoinGecko %1$s</string>
     <string name="backup_status_heading">Backup Status</string>
     <string name="backup_last_import_label">Last import: %1$s</string>
@@ -96,6 +97,14 @@
     <string name="backup_filename_hint">holdings_backup.json</string>
     <string name="backup_filename_required">Please enter a backup file name.</string>
     <string name="restore_select_backup">Select backup to restore</string>
+    <string name="backup_internal_storage">Internal storage</string>
+    <string name="backup_storage_volume">Storage volume</string>
+    <string name="backup_private_storage">App private storage</string>
+    <string name="drive_backup_folder">Drive backup folder</string>
+    <string name="drive_folder_picker_hint">Choose Google Drive and select Silver Project, or choose its parent folder.</string>
+    <string name="drive_folder_not_selected">No Drive folder selected.</string>
+    <string name="drive_folder_unavailable">Drive folder is unavailable.</string>
+    <string name="drive_folder_ready">Drive folder ready: Silver Project</string>
     <string name="restore_enter_filename">Enter file name</string>
     <string name="restore_mode_title">Restore mode</string>
     <string name="restore_mode_merge">Merge with existing holdings</string>
@@ -110,7 +119,7 @@
     <string name="holding_value_by_item">Value of Holding by Item</string>
     <string name="total_value_all_items">Total Value\nall Items</string>
     <string name="version_display_format">Version %1$s</string>
-    <string name="version_placeholder">Version 1.1.0</string>
+    <string name="version_placeholder">Version 1.4.0</string>
     <string name="action_version_history">Version History</string>
     <string name="get_latest_prices">Get Latest Prices</string>
     <string name="action_display_currency">Display currency</string>
@@ -119,7 +128,12 @@
     <string name="press_back_again_to_exit">Press Back again to exit.</string>
     <string name="currency_value_unavailable">N/A</string>
     <string name="spot_favourites">Spot-price favourites</string>
-    <string name="spot_prices_heading">Live Market Prices</string>
+    <string name="spot_prices_heading">Daily Market Prices</string>
+    <string name="daily_prices_status">Daily pricing: one successful update per day. Saved prices and rates are reused between updates.</string>
+    <string name="daily_metals_updated">Metals last updated %1$s. Get Latest Prices also observes the daily limit.</string>
+    <string name="metals_rate_limited">Metals provider rate limit (HTTP 429). Saved prices remain in use where available. Next lookup allowed after %1$s.</string>
+    <string name="keyless_fx_rate_limited">Exchange-rate provider rate limit (HTTP 429). Saved rates remain in use where available. Next lookup allowed after %1$s.</string>
+    <string name="metals_refresh_failed">Daily metals lookup failed. Last valid prices are kept where available; retries respect the provider cooldown.</string>
     <string name="dashboard_view_all_items">All items</string>
     <string name="dashboard_view_favourites">Favourites</string>
     <string name="all_items_column_item">Item</string>

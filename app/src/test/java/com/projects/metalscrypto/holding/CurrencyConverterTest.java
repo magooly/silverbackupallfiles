@@ -33,6 +33,30 @@ public class CurrencyConverterTest {
     }
 
     @Test
+    public void usdMetalHoldingDisplaysWithoutAudExchangeRate() {
+        assertEquals(Double.valueOf(300.0),
+                CurrencyConverter.convertHoldingValue(10.0, 30.0, "USD", "USD", null));
+        assertNull(CurrencyConverter.convertHoldingValue(10.0, 30.0, "USD", "AUD", null));
+    }
+
+    @Test
+    public void displayConversionDoesNotRequireAnUnrelatedAudRate() {
+        Map<String, Double> displayRates = new HashMap<>();
+        displayRates.put("USD", 1.0);
+        displayRates.put("EUR", 0.9);
+        assertEquals(270.0,
+                CurrencyConverter.convertHoldingValue(10.0, 30.0, "USD", "EUR", displayRates), 0.000001);
+        assertNull(CurrencyConverter.convertHoldingValue(10.0, 30.0, "USD", "AUD", displayRates));
+    }
+
+    @Test
+    public void audStockHoldingDisplaysWithoutExchangeRates() {
+        assertEquals(Double.valueOf(50.0),
+                CurrencyConverter.convertHoldingValue(10.0, 5.0, "AUD", "AUD", null));
+        assertNull(CurrencyConverter.convertHoldingValue(10.0, 5.0, "AUD", "USD", null));
+    }
+
+    @Test
     public void missingRateReturnsNullInsteadOfAnUnconvertedAmount() {
         assertNull(CurrencyConverter.convert(100.0, "USD", "GBP", rates));
     }

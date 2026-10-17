@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -86,6 +87,10 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "TAG";
     private static final int REQUEST_ID_MULTIPLE_PERMISSIONS = 101;
+    private static final int REQUEST_DRIVE_BACKUP_FOLDER = 114;
+    private static final int DRIVE_ACTION_NONE = 0;
+    private static final int DRIVE_ACTION_BACKUP = 1;
+    private static final int DRIVE_ACTION_RESTORE = 2;
     private static final String TYPE_SILVER = "Silver";
     private static final String TYPE_GOLD = "Gold";
     private static final String API_ERROR_LOG_FILE = "api_errors.txt";
@@ -104,8 +109,19 @@ public class MainActivity extends AppCompatActivity {
     private static final String PREF_SPOT_FAVOURITES = "pref_spot_favourites";
     private static final String PREF_SPOT_QUOTE_PREFIX = "spot_quote_";
     private static final String PREF_FX_UPDATED_AT = "pref_fx_updated_at";
+    private static final String PREF_METALS_RETRY_AT = "pref_metals_retry_at";
+    private static final String PREF_METALS_LAST_ATTEMPT = "pref_metals_last_attempt";
+    private static final String PREF_METALS_LAST_SUCCESS = "pref_metals_last_success";
+    private static final String PREF_QUOTE_SUCCESS_PREFIX = "spot_quote_success_";
+    private static final String PREF_QUOTE_ATTEMPT_PREFIX = "spot_quote_attempt_";
+    private static final String PREF_CRYPTO_RETRY_AT = "pref_crypto_retry_at";
+    private static final String PREF_STOCK_RETRY_AT = "pref_stock_retry_at";
+    private static final String PREF_FX_LAST_ATTEMPT = "pref_fx_last_attempt";
+    private static final String PREF_KEYLESS_FX_RETRY_AT = "pref_frankfurter_retry_at";
+    private static final String PREF_KEYLESS_FX_LAST_ATTEMPT = "pref_frankfurter_last_attempt";
+    private static final String PREF_KEYLESS_FX_LAST_SUCCESS = "pref_frankfurter_last_success";
+    private static final String PREF_METALS_REFRESH_FAILED = "pref_metals_refresh_failed";
     private static final String PREF_FX_RATE_PREFIX = "pref_fx_rate_usd_";
-    private static final long FX_RATE_REFRESH_INTERVAL_MS = 24L * 60L * 60L * 1000L;
     private static final String[] SUPPORTED_CURRENCIES = { "AUD", "NZD", "USD", "GBP", "EUR", "CNY", "JPY" };
     private static final String PREF_STOCK_PRICE_PREFIX = "stock_price_";
     private static final String PREF_CRYPTO_PRICE_PREFIX = "crypto_price_";
@@ -167,6 +183,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean hasTriggeredInitialLiveRefresh = false;
     private boolean hasLoggedMissingMetalsApiKey = false;
     private boolean hasLoggedMissingStockApiKey = false;
+    private int pendingDriveAction = DRIVE_ACTION_NONE;
     private LinearLayout llDynamicHoldings;
     private LinearLayout allItemMarketHoldingRows;
     private RadioGroup dashboardViewToggle;
@@ -182,7 +199,10 @@ public class MainActivity extends AppCompatActivity {
     private final Set<String> promptedCryptoTypes = new HashSet<>();
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
     private String displayCurrency = "AUD";
-    private boolean exchangeRateRequestInProgress;
+    private static boolean exchangeRateRequestInProgress;
+    private static boolean metalsRequestInProgress;
+    private static final Set<String> assetRequestsInProgress = new HashSet<>();
+    private TextView tvMarketRefreshStatus;
     private final List<SpotPriceFavourite> spotFavourites = new ArrayList<>();
     private final Map<String, Float> latestSpotQuotes = new HashMap<>();
     private final Map<String, PortfolioValueTrend.Direction> spotPriceMovements = new HashMap<>();
@@ -193,6 +213,13 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         preferences = getSharedPreferences(getString(R.string.app_name), MODE_PRIVATE);
+        SharedPreferences.Editor overrideCleanup = preferences.edit();
+        for (String key : preferences.getAll().keySet()) {
+            if (key.startsWith("manual_spot_quote_")) {
+                overrideCleanup.remove(key);
+            }
+        }
+        overrideCleanup.apply();
         displayCurrency = normalizeDisplayCurrency(preferences.getString(PREF_DISPLAY_CURRENCY, "AUD"));
         loadCachedExchangeRates();
         loadSpotFavourites();
@@ -235,14 +262,8 @@ public class MainActivity extends AppCompatActivity {
         versionManager.checkAndUpdateVersion();
         migrateLegacyHoldings();
         refreshExchangeRatesIfNeeded();
-        ioExecutor.execute(() -> {
-            BackupSyncManager.importAndMergeOnStart(this);
-            BackupSyncManager.exportSnapshot(this);
-            runOnUiThread(() -> {
-                refreshHoldingSummaries();
-                getAPIdata();
-            });
-        });
+        refreshHoldingSummaries();
+        getAPIdata();
         checkAndRequestPermissions();
     }
 
@@ -250,18 +271,12 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         refreshHoldingSummaries();
-        ioExecutor.execute(() -> {
-            BackupSyncManager.importAndMergeOnStart(this);
-            BackupSyncManager.exportSnapshot(this);
-            runOnUiThread(() -> {
-                refreshHoldingSummaries();
-                getAPIdata();
-            });
-        });
+        getAPIdata();
     }
 
     @Override
     protected void onPause() {
+        hasTriggeredInitialLiveRefresh = false;
         lastExitBackAt = -1L;
         if (exitBackToast != null) {
             exitBackToast.cancel();
@@ -287,7 +302,25 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void getMetalLiveData(Set<String> trackedMetalTypes) {
+        if (MarketDataProviders.USE_KEYLESS_METALS) {
+            getKeylessMetalData();
+        } else {
+            getMetalChartsData(trackedMetalTypes);
+        }
+    }
+
+    // Retained for rollback: select MetalCharts with USE_KEYLESS_METALS in
+    // MarketDataProviders.
+    private void getMetalChartsData(Set<String> trackedMetalTypes) {
         if (trackedMetalTypes.isEmpty()) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (!PriceRetryPolicy.canRequestDaily(metalsRequestInProgress, now,
+                preferences.getLong(PREF_METALS_LAST_ATTEMPT, 0L),
+                preferences.getLong(PREF_METALS_RETRY_AT, 0L),
+                preferences.getLong(PREF_METALS_LAST_SUCCESS, 0L))) {
+            updateMarketRefreshStatus();
             return;
         }
         String apiKey = BuildConfig.METALCHARTS_API_KEY == null ? "" : BuildConfig.METALCHARTS_API_KEY.trim();
@@ -297,32 +330,43 @@ public class MainActivity extends AppCompatActivity {
                         "Metals API key missing: set METALCHARTS_API_KEY in local.properties or environment.");
                 hasLoggedMissingMetalsApiKey = true;
             }
+            preferences.edit().putBoolean(PREF_METALS_REFRESH_FAILED, true).apply();
+            updateMarketRefreshStatus();
             showCachedPricesIndicator();
             return;
         }
 
+        metalsRequestInProgress = true;
+        preferences.edit().putLong(PREF_METALS_LAST_ATTEMPT, now).apply();
         ApiWebservices apiWebservices = ApiHelperClass.getClient().create(ApiWebservices.class);
         Call<JsonObject> call = apiWebservices.getPriceRes("Bearer " + apiKey);
 
         call.enqueue(new Callback<JsonObject>() {
             @Override
             public void onResponse(@NonNull Call<JsonObject> call, @NonNull Response<JsonObject> response) {
+                metalsRequestInProgress = false;
+                if (response.code() == 429) {
+                    recordMetalsRateLimit(response.headers().get("Retry-After"));
+                }
                 if (!isUiAlive()) {
                     return;
                 }
                 if (response.isSuccessful() && response.body() != null) {
                     JsonObject body = response.body();
                     boolean hasUpdatedPrice = false;
-                    for (String metalType : trackedMetalTypes) {
+                    Set<String> dailyMetals = new LinkedHashSet<>(trackedMetalTypes);
+                    Collections.addAll(dailyMetals, "Gold", "Silver", "Platinum", "Palladium");
+                    for (String metalType : dailyMetals) {
                         String symbol = METAL_SYMBOL_BY_TYPE.get(metalType);
                         if (symbol == null) {
                             continue;
                         }
                         float metalPrice = parseMetalChartsPrice(body, symbol);
-                        if (metalPrice <= 0) {
+                        if (metalPrice <= 0 || Float.isNaN(metalPrice) || Float.isInfinite(metalPrice)) {
                             continue;
                         }
                         recordSpotQuote(SpotPriceFavourite.metal(metalType), metalPrice);
+                        preferences.edit().putFloat(PREF_SPOT_QUOTE_PREFIX + "metal:" + metalType, metalPrice).apply();
                         if ("Gold".equalsIgnoreCase(metalType)) {
                             lv_gold_amt = metalPrice;
                             slv_gld_price = String.valueOf(metalPrice);
@@ -348,17 +392,24 @@ public class MainActivity extends AppCompatActivity {
                     }
 
                     if (hasUpdatedPrice) {
+                        preferences.edit().putBoolean(PREF_METALS_REFRESH_FAILED, false)
+                                .putLong(PREF_METALS_LAST_SUCCESS, System.currentTimeMillis()).apply();
+                        updateMarketRefreshStatus();
                         updateUI();
                         if (lv_gold_amt > 0 && lv_slv_amt > 0) {
                             insertdatainDB();
                         }
                     } else {
+                        preferences.edit().putBoolean(PREF_METALS_REFRESH_FAILED, true).apply();
+                        updateMarketRefreshStatus();
                         appendApiErrorLog("Live API unsuccessful. HTTP=" + response.code()
                                 + ", message=missing tracked metal prices");
                         Log.w(TAG, "Live response missing tracked metal prices, using cached prices");
                         showCachedPricesIndicator();
                     }
                 } else {
+                    preferences.edit().putBoolean(PREF_METALS_REFRESH_FAILED, true).apply();
+                    updateMarketRefreshStatus();
                     appendApiErrorLog("Live API unsuccessful. HTTP=" + response.code());
                     Log.w(TAG, "Live response unsuccessful, using cached prices");
                     showCachedPricesIndicator();
@@ -367,14 +418,140 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onFailure(@NonNull Call<JsonObject> call, @NonNull Throwable t) {
+                metalsRequestInProgress = false;
                 if (!isUiAlive()) {
                     return;
                 }
+                preferences.edit().putBoolean(PREF_METALS_REFRESH_FAILED, true).apply();
+                updateMarketRefreshStatus();
                 appendApiErrorLog("Live API failure: " + t.getClass().getSimpleName() + " - " + t.getMessage());
                 Log.e(TAG, "Failed to fetch live data", t);
                 showCachedPricesIndicator();
             }
         });
+    }
+
+    private String activeMetalsKey(String legacyKey) {
+        return MarketDataProviders.USE_KEYLESS_METALS ? legacyKey + "_gold_api" : legacyKey;
+    }
+
+    private void getKeylessMetalData() {
+        long now = System.currentTimeMillis();
+        if (!PriceRetryPolicy.canRequestDaily(metalsRequestInProgress, now,
+                preferences.getLong(activeMetalsKey(PREF_METALS_LAST_ATTEMPT), 0L),
+                preferences.getLong(activeMetalsKey(PREF_METALS_RETRY_AT), 0L),
+                preferences.getLong(activeMetalsKey(PREF_METALS_LAST_SUCCESS), 0L))) {
+            updateMarketRefreshStatus();
+            return;
+        }
+        metalsRequestInProgress = true;
+        preferences.edit().putLong(activeMetalsKey(PREF_METALS_LAST_ATTEMPT), now).apply();
+        requestKeylessMetal(new String[] { "Gold", "Silver", "Platinum", "Palladium" }, 0,
+                new LinkedHashMap<>());
+    }
+
+    private void requestKeylessMetal(String[] types, int index, Map<String, Float> prices) {
+        if (index >= types.length) {
+            finishKeylessMetals(prices);
+            return;
+        }
+        String type = types[index];
+        String symbol = MarketDataProviders.metalSymbol(type);
+        MarketDataProviders.metalPrice(symbol).enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(@NonNull Call<JsonObject> call, @NonNull Response<JsonObject> response) {
+                if (response.code() == 429) {
+                    recordAssetRateLimit(activeMetalsKey(PREF_METALS_RETRY_AT),
+                            response.headers().get("Retry-After"));
+                    appendApiErrorLog("Gold-API rate limited. HTTP=429");
+                    finishKeylessMetals(prices);
+                    return;
+                }
+                float price = response.isSuccessful()
+                        ? MarketDataProviders.parseMetalPrice(response.body(), symbol)
+                        : 0F;
+                if (price > 0) {
+                    prices.put(type, price);
+                } else {
+                    appendApiErrorLog("Gold-API quote unavailable for " + symbol + ". HTTP=" + response.code());
+                }
+                requestKeylessMetal(types, index + 1, prices);
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<JsonObject> call, @NonNull Throwable throwable) {
+                appendApiErrorLog("Gold-API request failed: " + throwable.getClass().getSimpleName());
+                finishKeylessMetals(prices);
+            }
+        });
+    }
+
+    private void finishKeylessMetals(Map<String, Float> prices) {
+        for (Map.Entry<String, Float> entry : prices.entrySet()) {
+            recordSpotQuote(SpotPriceFavourite.metal(entry.getKey()), entry.getValue());
+        }
+        if (prices.containsKey(TYPE_GOLD)) {
+            lv_gold_amt = prices.get(TYPE_GOLD);
+            slv_gld_price = String.valueOf(lv_gold_amt);
+        }
+        if (prices.containsKey(TYPE_SILVER)) {
+            lv_slv_amt = prices.get(TYPE_SILVER);
+            slv_slv_price = String.valueOf(lv_slv_amt);
+        }
+        boolean successful = prices.containsKey(TYPE_GOLD) && prices.containsKey(TYPE_SILVER);
+        SharedPreferences.Editor result = preferences.edit().putBoolean(
+                activeMetalsKey(PREF_METALS_REFRESH_FAILED), !successful);
+        if (successful) {
+            result.putLong(activeMetalsKey(PREF_METALS_LAST_SUCCESS), System.currentTimeMillis());
+        }
+        result.apply();
+        metalsRequestInProgress = false;
+        if (isUiAlive()) {
+            updateMarketRefreshStatus();
+            updateUI();
+            if (successful) {
+                insertdatainDB();
+            }
+        }
+    }
+
+    private void recordMetalsRateLimit(String retryAfter) {
+        long retryAt = Math.max(preferences.getLong(PREF_METALS_RETRY_AT, 0L),
+                PriceRetryPolicy.retryAt(retryAfter, System.currentTimeMillis()));
+        preferences.edit().putLong(PREF_METALS_RETRY_AT, retryAt).apply();
+        if (isUiAlive()) {
+            updateMarketRefreshStatus();
+        }
+    }
+
+    private void updateMarketRefreshStatus() {
+        if (tvMarketRefreshStatus == null) {
+            return;
+        }
+        long retryAt = preferences.getLong(activeMetalsKey(PREF_METALS_RETRY_AT), 0L);
+        if (retryAt > System.currentTimeMillis()) {
+            String time = new SimpleDateFormat("dd-MM HH:mm", Locale.getDefault()).format(new Date(retryAt));
+            tvMarketRefreshStatus.setText(getString(R.string.metals_rate_limited, time));
+            tvMarketRefreshStatus.setVisibility(View.VISIBLE);
+        } else if (preferences.getBoolean(activeMetalsKey(PREF_METALS_REFRESH_FAILED), false)) {
+            tvMarketRefreshStatus.setText(R.string.metals_refresh_failed);
+            tvMarketRefreshStatus.setVisibility(View.VISIBLE);
+        } else {
+            long lastSuccess = preferences.getLong(activeMetalsKey(PREF_METALS_LAST_SUCCESS), 0L);
+            if (lastSuccess > 0) {
+                String savedDate = new SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault())
+                        .format(new Date(lastSuccess));
+                tvMarketRefreshStatus.setText(getString(R.string.daily_metals_updated, savedDate));
+            } else {
+                tvMarketRefreshStatus.setText(R.string.daily_prices_status);
+            }
+            tvMarketRefreshStatus.setVisibility(View.VISIBLE);
+        }
+        long fxRetryAt = preferences.getLong(PREF_KEYLESS_FX_RETRY_AT, 0L);
+        if (MarketDataProviders.USE_KEYLESS_FX && fxRetryAt > System.currentTimeMillis()) {
+            String time = new SimpleDateFormat("dd-MM HH:mm", Locale.getDefault()).format(new Date(fxRetryAt));
+            tvMarketRefreshStatus.append("\n" + getString(R.string.keyless_fx_rate_limited, time));
+        }
     }
 
     private float parseMetalChartsPrice(JsonObject body, String symbol) {
@@ -429,36 +606,69 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private boolean beginAssetLookup(String id) {
+        String retryKey = id.startsWith("stock:") ? PREF_STOCK_RETRY_AT : PREF_CRYPTO_RETRY_AT;
+        long now = System.currentTimeMillis();
+        if (!PriceRetryPolicy.canRequestDaily(assetRequestsInProgress.contains(id), now,
+                preferences.getLong(PREF_QUOTE_ATTEMPT_PREFIX + id, 0L),
+                preferences.getLong(retryKey, 0L), preferences.getLong(PREF_QUOTE_SUCCESS_PREFIX + id, 0L))) {
+            return false;
+        }
+        assetRequestsInProgress.add(id);
+        preferences.edit().putLong(PREF_QUOTE_ATTEMPT_PREFIX + id, now).apply();
+        return true;
+    }
+
+    private void recordAssetRateLimit(String retryKey, String retryAfter) {
+        long retryAt = Math.max(preferences.getLong(retryKey, 0L),
+                PriceRetryPolicy.retryAt(retryAfter, System.currentTimeMillis()));
+        preferences.edit().putLong(retryKey, retryAt).apply();
+    }
+
     private void fetchCryptoPrices(Map<String, String> cryptoIdToType) {
+        Map<String, String> requestedQuotes = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : cryptoIdToType.entrySet()) {
+            String cryptoId = entry.getKey().toLowerCase(Locale.ROOT);
+            if (beginAssetLookup("crypto:" + cryptoId)) {
+                requestedQuotes.put(cryptoId, entry.getValue());
+            }
+        }
+        if (requestedQuotes.isEmpty()) {
+            return;
+        }
         CryptoApiWebservices cryptoApiWebservices = CryptoApiHelperClass.getClient().create(CryptoApiWebservices.class);
-        String ids = String.join(",", cryptoIdToType.keySet());
+        String ids = String.join(",", requestedQuotes.keySet());
         Call<JsonObject> call = cryptoApiWebservices.getCryptoPrices(ids, "aud");
 
         call.enqueue(new Callback<JsonObject>() {
             @Override
             public void onResponse(@NonNull Call<JsonObject> call, @NonNull Response<JsonObject> response) {
+                for (String id : requestedQuotes.keySet()) {
+                    assetRequestsInProgress.remove("crypto:" + id);
+                }
+                if (response.code() == 429) {
+                    recordAssetRateLimit(PREF_CRYPTO_RETRY_AT, response.headers().get("Retry-After"));
+                }
                 if (!isUiAlive()) {
                     return;
                 }
                 if (response.isSuccessful() && response.body() != null) {
                     JsonObject body = response.body();
                     boolean hasUpdatedPrice = false;
-                    for (Map.Entry<String, String> entry : cryptoIdToType.entrySet()) {
+                    for (Map.Entry<String, String> entry : requestedQuotes.entrySet()) {
                         String cryptoId = entry.getKey();
                         String cryptoType = entry.getValue();
                         float cryptoPrice = parseCryptoAud(body, cryptoId);
-                        if (cryptoPrice <= 0) {
+                        if (cryptoPrice <= 0 || Float.isNaN(cryptoPrice) || Float.isInfinite(cryptoPrice)) {
                             promptForCryptoIdOverride(cryptoType, cryptoId);
                             continue;
                         }
                         recordSpotQuote(SpotPriceFavourite.crypto(cryptoType, cryptoId), cryptoPrice);
+                        cacheCryptoPrice(cryptoType, cryptoPrice);
                         if ("Bitcoin".equalsIgnoreCase(cryptoType)) {
                             lv_btc_amt = cryptoPrice;
                         } else if ("Ethereum".equalsIgnoreCase(cryptoType)) {
                             lv_eth_amt = cryptoPrice;
-                        } else {
-                            liveCryptoPrices.put(cryptoType, cryptoPrice);
-                            cacheCryptoPrice(cryptoType, cryptoPrice);
                         }
                         hasUpdatedPrice = true;
                     }
@@ -472,6 +682,9 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onFailure(@NonNull Call<JsonObject> call, @NonNull Throwable t) {
+                for (String id : requestedQuotes.keySet()) {
+                    assetRequestsInProgress.remove("crypto:" + id);
+                }
                 if (!isUiAlive()) {
                     return;
                 }
@@ -481,11 +694,20 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void resolveCryptoIdAndFetch(String cryptoType) {
+        String requestId = "crypto-search:" + HoldingsDb.normalizeItemType(cryptoType);
+        if (!beginAssetLookup(requestId)) {
+            return;
+        }
         CryptoApiWebservices cryptoApiWebservices = CryptoApiHelperClass.getClient().create(CryptoApiWebservices.class);
         Call<JsonObject> call = cryptoApiWebservices.searchCrypto(cryptoType);
         call.enqueue(new Callback<JsonObject>() {
             @Override
             public void onResponse(@NonNull Call<JsonObject> call, @NonNull Response<JsonObject> response) {
+                assetRequestsInProgress.remove(requestId);
+                if (response.code() == 429) {
+                    recordAssetRateLimit(PREF_CRYPTO_RETRY_AT, response.headers().get("Retry-After"));
+                    return;
+                }
                 if (!isUiAlive()) {
                     return;
                 }
@@ -508,6 +730,7 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onFailure(@NonNull Call<JsonObject> call, @NonNull Throwable t) {
+                assetRequestsInProgress.remove(requestId);
                 if (!isUiAlive()) {
                     return;
                 }
@@ -536,6 +759,9 @@ public class MainActivity extends AppCompatActivity {
         String stockApiKey = BuildConfig.EODHD_API_KEY.trim();
         requestedStockTickers.addAll(stockTickers);
         for (String ticker : stockTickers) {
+            if (!beginAssetLookup("stock:" + ticker)) {
+                continue;
+            }
             String asxSymbol = HoldingsDb.toAsxQuoteSymbol(ticker);
             fetchStockPrice(stockApiWebservices, stockApiKey, ticker, asxSymbol, true);
         }
@@ -543,6 +769,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void fetchStockPrice(StockApiWebservices stockApiWebservices, String apiKey, String ticker,
             String queriedSymbol, boolean allowFallback) {
+        if (System.currentTimeMillis() < preferences.getLong(PREF_STOCK_RETRY_AT, 0L)) {
+            assetRequestsInProgress.remove("stock:" + ticker);
+            return;
+        }
         Call<JsonElement> call = stockApiWebservices.getLatestPrice(
                 queriedSymbol,
                 apiKey,
@@ -550,12 +780,19 @@ public class MainActivity extends AppCompatActivity {
         call.enqueue(new Callback<JsonElement>() {
             @Override
             public void onResponse(@NonNull Call<JsonElement> call, @NonNull Response<JsonElement> response) {
+                if (response.code() == 429) {
+                    recordAssetRateLimit(PREF_STOCK_RETRY_AT, response.headers().get("Retry-After"));
+                    assetRequestsInProgress.remove("stock:" + ticker);
+                    return;
+                }
                 if (!isUiAlive()) {
+                    assetRequestsInProgress.remove("stock:" + ticker);
                     return;
                 }
                 if (response.isSuccessful() && response.body() != null) {
                     float stockPrice = parseStockPrice(response.body(), queriedSymbol);
-                    if (stockPrice > 0) {
+                    if (stockPrice > 0 && !Float.isNaN(stockPrice) && !Float.isInfinite(stockPrice)) {
+                        assetRequestsInProgress.remove("stock:" + ticker);
                         acceptStockQuote(ticker, stockPrice);
                         updateUI();
                         return;
@@ -568,6 +805,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onFailure(@NonNull Call<JsonElement> call, @NonNull Throwable t) {
                 if (!isUiAlive()) {
+                    assetRequestsInProgress.remove("stock:" + ticker);
                     return;
                 }
                 fetchStockEodPrice(stockApiWebservices, apiKey, ticker, queriedSymbol, allowFallback);
@@ -577,6 +815,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void fetchStockEodPrice(StockApiWebservices stockApiWebservices, String apiKey, String ticker,
             String queriedSymbol, boolean allowFallback) {
+        if (System.currentTimeMillis() < preferences.getLong(PREF_STOCK_RETRY_AT, 0L)) {
+            assetRequestsInProgress.remove("stock:" + ticker);
+            return;
+        }
         Call<JsonElement> call = stockApiWebservices.getEndOfDayPrice(
                 queriedSymbol,
                 apiKey,
@@ -585,12 +827,19 @@ public class MainActivity extends AppCompatActivity {
         call.enqueue(new Callback<JsonElement>() {
             @Override
             public void onResponse(@NonNull Call<JsonElement> call, @NonNull Response<JsonElement> response) {
+                if (response.code() == 429) {
+                    recordAssetRateLimit(PREF_STOCK_RETRY_AT, response.headers().get("Retry-After"));
+                    assetRequestsInProgress.remove("stock:" + ticker);
+                    return;
+                }
                 if (!isUiAlive()) {
+                    assetRequestsInProgress.remove("stock:" + ticker);
                     return;
                 }
                 if (response.isSuccessful() && response.body() != null) {
                     float stockPrice = parseStockPrice(response.body(), queriedSymbol);
-                    if (stockPrice > 0) {
+                    if (stockPrice > 0 && !Float.isNaN(stockPrice) && !Float.isInfinite(stockPrice)) {
+                        assetRequestsInProgress.remove("stock:" + ticker);
                         acceptStockQuote(ticker, stockPrice);
                         updateUI();
                         return;
@@ -603,6 +852,7 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 String status = extractStockApiStatus(response.body());
+                assetRequestsInProgress.remove("stock:" + ticker);
                 appendApiErrorLog("Stock API unsuccessful for " + queriedSymbol
                         + ". HTTP=" + response.code() + ", status=" + status);
             }
@@ -610,12 +860,14 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onFailure(@NonNull Call<JsonElement> call, @NonNull Throwable t) {
                 if (!isUiAlive()) {
+                    assetRequestsInProgress.remove("stock:" + ticker);
                     return;
                 }
                 if (allowFallback && !ticker.equalsIgnoreCase(queriedSymbol)) {
                     fetchStockPrice(stockApiWebservices, apiKey, ticker, ticker, false);
                     return;
                 }
+                assetRequestsInProgress.remove("stock:" + ticker);
                 appendApiErrorLog("Stock API failure for " + queriedSymbol
                         + ": " + t.getClass().getSimpleName() + " - " + t.getMessage());
             }
@@ -838,6 +1090,8 @@ public class MainActivity extends AppCompatActivity {
         portfolioValueSparkline.setVisibility(
                 getResources().getConfiguration().screenWidthDp >= 600 ? View.VISIBLE : View.GONE);
         tvPriceHeading = findViewById(R.id.tv_price_heading);
+        tvMarketRefreshStatus = findViewById(R.id.tv_market_refresh_status);
+        updateMarketRefreshStatus();
         spotFavouritesContainer = findViewById(R.id.spot_price_favourites_container);
         llDynamicHoldings = findViewById(R.id.ll_dynamic_holdings);
         llPriceNotice = findViewById(R.id.ll_price_notice);
@@ -936,8 +1190,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateUI() {
-        float current_silver_price = lv_slv_amt > 0 ? lv_slv_amt : d_silver_amt;
-        float current_gold_price = lv_gold_amt > 0 ? lv_gold_amt : d_gold_amt;
+        float current_silver_price = getCurrentPriceByType(TYPE_SILVER);
+        float current_gold_price = getCurrentPriceByType(TYPE_GOLD);
         DecimalFormat priceFormat = new DecimalFormat(
                 preferences.getBoolean(PREF_WHOLE_DOLLARS_ONLY, false) ? "#,##0" : "#,##0.00");
         priceFormat.setRoundingMode(RoundingMode.HALF_UP);
@@ -948,6 +1202,13 @@ public class MainActivity extends AppCompatActivity {
                 silver_total, current_silver_price, "USD", "AUD", exchangeRatesFromUsd);
         Double goldHoldingAud = CurrencyConverter.convertHoldingValue(
                 gold_total, current_gold_price, "USD", "AUD", exchangeRatesFromUsd);
+        Double silverHoldingDisplay = CurrencyConverter.convertHoldingValue(
+                silver_total, current_silver_price, "USD", displayCurrency, exchangeRatesFromUsd);
+        Double goldHoldingDisplay = CurrencyConverter.convertHoldingValue(
+                gold_total, current_gold_price, "USD", displayCurrency, exchangeRatesFromUsd);
+        boolean displayTotalAvailable = silverHoldingDisplay != null && goldHoldingDisplay != null;
+        double totalHoldingDisplay = (silverHoldingDisplay == null ? 0 : silverHoldingDisplay)
+                + (goldHoldingDisplay == null ? 0 : goldHoldingDisplay);
         boolean totalAvailable = silverHoldingAud != null && goldHoldingAud != null;
         double totalHoldingAud = (silverHoldingAud == null ? 0 : silverHoldingAud)
                 + (goldHoldingAud == null ? 0 : goldHoldingAud);
@@ -962,15 +1223,22 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 totalHoldingAud += holdingAud;
             }
+            Double holdingDisplay = getHoldingValueInCurrency(summary, displayCurrency);
+            if (holdingDisplay == null) {
+                displayTotalAvailable = false;
+            } else {
+                totalHoldingDisplay += holdingDisplay;
+            }
         }
 
-        tv_hld_slv_price_amount.setText(formatCurrencyValue(convertAudToDisplay(silverHoldingAud), priceFormat));
-        tv_hld_gld_amount.setText(formatCurrencyValue(convertAudToDisplay(goldHoldingAud), priceFormat));
+        tv_hld_slv_price_amount.setText(formatCurrencyValue(silverHoldingDisplay, priceFormat));
+        tv_hld_gld_amount.setText(formatCurrencyValue(goldHoldingDisplay, priceFormat));
         renderDynamicHoldingRows(priceFormat);
         renderAllItemMarketHoldingRows(priceFormat);
-        Double totalDisplay = totalAvailable
-                ? CurrencyConverter.convert(totalHoldingAud, "AUD", displayCurrency, exchangeRatesFromUsd)
-                : null;
+        Double totalDisplay = null;
+        if (displayTotalAvailable && !Double.isNaN(totalHoldingDisplay) && !Double.isInfinite(totalHoldingDisplay)) {
+            totalDisplay = totalHoldingDisplay;
+        }
         String portfolioAmount = totalDisplay == null
                 ? getString(R.string.currency_value_unavailable)
                 : currencySymbol(displayCurrency) + priceFormat.format(totalDisplay);
@@ -1134,10 +1402,10 @@ public class MainActivity extends AppCompatActivity {
             TextView amount = row.findViewById(R.id.tv_dynamic_amount);
             TextView currencySymbol = row.findViewById(R.id.tv_dynamic_currency_symbol);
             TextView currencyCode = row.findViewById(R.id.tv_dynamic_currency_code);
-            Double holdingAud = getHoldingValueInAud(summary);
+            Double holdingDisplay = getHoldingValueInCurrency(summary, displayCurrency);
 
             title.setText(summary.itemType);
-            amount.setText(formatCurrencyValue(convertAudToDisplay(holdingAud), formatter));
+            amount.setText(formatCurrencyValue(holdingDisplay, formatter));
             currencySymbol.setText(currencySymbol(displayCurrency));
             currencyCode.setText(displayCurrency);
             if (AppCompatDelegate.getDefaultNightMode() == AppCompatDelegate.MODE_NIGHT_YES) {
@@ -1201,9 +1469,10 @@ public class MainActivity extends AppCompatActivity {
             if (displayedMarketPrice == null && hasMarketPrice) {
                 displayedMarketPrice = (double) marketPrice;
             }
-            Double holdingValue = convertAudToDisplay(getHoldingValueInAud(summary));
+            Double holdingValue = getHoldingValueInCurrency(summary, displayCurrency);
 
-            item.setText(getAllItemsDisplayName(summary.itemType));
+            String itemLabel = getAllItemsDisplayName(summary.itemType);
+            item.setText(itemLabel);
             marketAmount.setText(formatCurrencyValue(displayedMarketPrice, formatter));
             marketAmount.setTextColor(getSpotPriceMovementColor(getSpotFavouriteForType(summary.itemType)));
             marketSymbol.setText(currencySymbol(marketDisplayCurrency));
@@ -1279,26 +1548,27 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private Double getHoldingValueInAud(HoldingSummary summary) {
+        return getHoldingValueInCurrency(summary, "AUD");
+    }
+
+    private Double getHoldingValueInCurrency(HoldingSummary summary, String targetCurrency) {
         float currentPrice = getCurrentPriceByType(summary.itemType);
         if (isApiLookupType(summary.itemType)) {
             return CurrencyConverter.convertHoldingValue(
                     summary.totalUnits,
                     currentPrice,
                     getPriceCurrency(summary.itemType),
-                    "AUD",
+                    targetCurrency,
                     exchangeRatesFromUsd);
         }
-        return (double) summary.totalUnits;
+        if (summary.totalUnits == 0) {
+            return 0.0;
+        }
+        return CurrencyConverter.convert(summary.totalUnits, "AUD", targetCurrency, exchangeRatesFromUsd);
     }
 
     private String getPriceCurrency(String itemType) {
         return isMetalType(HoldingsDb.normalizeItemType(itemType)) ? "USD" : "AUD";
-    }
-
-    private Double convertAudToDisplay(Double amountAud) {
-        return amountAud == null
-                ? null
-                : CurrencyConverter.convert(amountAud, "AUD", displayCurrency, exchangeRatesFromUsd);
     }
 
     private void updatePriceNotice(float currentSilverPrice, float currentGoldPrice) {
@@ -1388,6 +1658,15 @@ public class MainActivity extends AppCompatActivity {
 
     private float getCurrentPriceByType(String itemType) {
         String normalizedType = HoldingsDb.normalizeItemType(itemType);
+        SpotPriceFavourite asset = getSpotFavouriteForType(normalizedType);
+        String quoteId = isMetalType(normalizedType) ? "metal:" + normalizedType
+                : asset == null ? null : asset.id();
+        if (quoteId != null) {
+            float savedQuote = preferences.getFloat(PREF_SPOT_QUOTE_PREFIX + quoteId, 0F);
+            if (savedQuote > 0 && !Float.isNaN(savedQuote) && !Float.isInfinite(savedQuote)) {
+                return savedQuote;
+            }
+        }
         if (TYPE_SILVER.equalsIgnoreCase(normalizedType))
             return lv_slv_amt > 0 ? lv_slv_amt : d_silver_amt;
         if (TYPE_GOLD.equalsIgnoreCase(normalizedType))
@@ -1407,9 +1686,15 @@ public class MainActivity extends AppCompatActivity {
         if ("Zinc".equalsIgnoreCase(normalizedType))
             return d_zinc_amt > 0 ? d_zinc_amt : lv_zinc_amt;
         if ("Bitcoin".equalsIgnoreCase(normalizedType))
-            return d_btc_amt > 0 ? d_btc_amt : lv_btc_amt;
+            return lv_btc_amt > 0 ? lv_btc_amt
+                    : cachedCryptoPrices.containsKey(normalizedType)
+                            ? cachedCryptoPrices.get(normalizedType)
+                            : d_btc_amt;
         if ("Ethereum".equalsIgnoreCase(normalizedType))
-            return d_eth_amt > 0 ? d_eth_amt : lv_eth_amt;
+            return lv_eth_amt > 0 ? lv_eth_amt
+                    : cachedCryptoPrices.containsKey(normalizedType)
+                            ? cachedCryptoPrices.get(normalizedType)
+                            : d_eth_amt;
         if (isCryptoLookupType(normalizedType)) {
             Float livePrice = liveCryptoPrices.get(normalizedType);
             if (livePrice != null && livePrice > 0) {
@@ -1467,6 +1752,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void getAPIdata() {
+        updateMarketRefreshStatus();
+        date = new SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(new Date());
         d_gold_amt = 0;
         d_silver_amt = 0;
         d_copper_amt = 0;
@@ -1480,6 +1767,9 @@ public class MainActivity extends AppCompatActivity {
         d_eth_amt = 0;
 
         alSilver = silverDB.getSilverData(date);
+        if (alSilver == null || alSilver.isEmpty()) {
+            alSilver = silverDB.getLatestSilverData();
+        }
         boolean hasOfflineData = alSilver != null && !alSilver.isEmpty();
         if (hasOfflineData) {
             Log.d(TAG, "Offline data fetched");
@@ -1494,6 +1784,7 @@ public class MainActivity extends AppCompatActivity {
         } else {
             Log.d(TAG, "No offline data for today");
         }
+        updateUI();
 
         // Auto-refresh only once per app opening; manual refresh button remains
         // available.
@@ -1559,11 +1850,15 @@ public class MainActivity extends AppCompatActivity {
             return true;
         }
         if (id == R.id.action_backup) {
-            promptForBackupFileName(false);
+            startDriveBackup();
             return true;
         }
         if (id == R.id.action_restore) {
-            showAvailableBackupsForRestore();
+            startDriveRestore();
+            return true;
+        }
+        if (id == R.id.action_drive_backup_folder) {
+            requestDriveBackupFolder(DRIVE_ACTION_NONE);
             return true;
         }
         if (id == R.id.action_version_history) {
@@ -1580,6 +1875,73 @@ public class MainActivity extends AppCompatActivity {
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private void startDriveBackup() {
+        if (!DriveBackupManager.hasSavedTreeUri(this)) {
+            requestDriveBackupFolder(DRIVE_ACTION_BACKUP);
+            return;
+        }
+        performDriveBackup();
+    }
+
+    private void performDriveBackup() {
+        ioExecutor.execute(() -> {
+            BackupSyncManager.BackupResult result = BackupSyncManager.exportSnapshotResult(this);
+            runOnUiThread(() -> Toast.makeText(this, result.getMessage(), Toast.LENGTH_LONG).show());
+        });
+    }
+
+    private void startDriveRestore() {
+        if (!DriveBackupManager.hasSavedTreeUri(this)) {
+            requestDriveBackupFolder(DRIVE_ACTION_RESTORE);
+            return;
+        }
+        showAvailableBackupsForRestore();
+    }
+
+    private void requestDriveBackupFolder(int pendingAction) {
+        pendingDriveAction = pendingAction;
+        Toast.makeText(this, R.string.drive_folder_picker_hint, Toast.LENGTH_LONG).show();
+        startActivityForResult(DriveBackupManager.createFolderPickerIntent(), REQUEST_DRIVE_BACKUP_FOLDER);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_DRIVE_BACKUP_FOLDER) {
+            return;
+        }
+        int requestedAction = pendingDriveAction;
+        pendingDriveAction = DRIVE_ACTION_NONE;
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) {
+            Toast.makeText(this, R.string.drive_folder_not_selected, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        try {
+            int grantFlags = data.getFlags()
+                    & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            DriveBackupManager.saveTreeUri(this, data.getData(), grantFlags);
+            String folderError = DriveBackupManager.prepareProjectFolder(this);
+            if (folderError != null) {
+                Toast.makeText(this, getString(R.string.backup_failed, folderError), Toast.LENGTH_LONG).show();
+                return;
+            }
+        } catch (Exception exception) {
+            Log.e(TAG, "Failed to access the selected Drive folder", exception);
+            String message = exception.getMessage() == null ? getString(R.string.drive_folder_unavailable)
+                    : exception.getMessage();
+            Toast.makeText(this, getString(R.string.backup_failed, message), Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        Toast.makeText(this, R.string.drive_folder_ready, Toast.LENGTH_SHORT).show();
+        if (requestedAction == DRIVE_ACTION_BACKUP) {
+            performDriveBackup();
+        } else if (requestedAction == DRIVE_ACTION_RESTORE) {
+            showAvailableBackupsForRestore();
+        }
     }
 
     private String normalizeDisplayCurrency(String currency) {
@@ -1635,7 +1997,7 @@ public class MainActivity extends AppCompatActivity {
             String storedRate = preferences.getString(PREF_FX_RATE_PREFIX + currency, "");
             try {
                 double rate = Double.parseDouble(storedRate);
-                if (rate > 0) {
+                if (rate > 0 && !Double.isNaN(rate) && !Double.isInfinite(rate)) {
                     exchangeRatesFromUsd.put(currency, rate);
                 }
             } catch (NumberFormatException ignored) {
@@ -1654,9 +2016,75 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void refreshExchangeRatesIfNeeded() {
+        if (MarketDataProviders.USE_KEYLESS_FX) {
+            refreshKeylessExchangeRates();
+        } else {
+            refreshMetalChartsExchangeRates();
+        }
+    }
+
+    private void refreshKeylessExchangeRates() {
+        long now = System.currentTimeMillis();
+        long lastSuccess = hasCompleteExchangeRates()
+                ? preferences.getLong(PREF_KEYLESS_FX_LAST_SUCCESS, 0L)
+                : 0L;
+        if (!CustomNetwork.isNetworkAvailable(mContext)
+                || !PriceRetryPolicy.canRequestDaily(exchangeRateRequestInProgress, now,
+                        preferences.getLong(PREF_KEYLESS_FX_LAST_ATTEMPT, 0L),
+                        preferences.getLong(PREF_KEYLESS_FX_RETRY_AT, 0L), lastSuccess)) {
+            return;
+        }
+        exchangeRateRequestInProgress = true;
+        preferences.edit().putLong(PREF_KEYLESS_FX_LAST_ATTEMPT, now).apply();
+        MarketDataProviders.exchangeRates().enqueue(new Callback<JsonElement>() {
+            @Override
+            public void onResponse(@NonNull Call<JsonElement> call, @NonNull Response<JsonElement> response) {
+                exchangeRateRequestInProgress = false;
+                if (response.code() == 429) {
+                    recordAssetRateLimit(PREF_KEYLESS_FX_RETRY_AT, response.headers().get("Retry-After"));
+                    if (isUiAlive()) {
+                        updateMarketRefreshStatus();
+                    }
+                }
+                if (!response.isSuccessful()) {
+                    appendApiErrorLog("Frankfurter FX request failed. HTTP=" + response.code());
+                    return;
+                }
+                try {
+                    Map<String, Double> rates = MarketDataProviders.parseExchangeRates(
+                            response.body(), SUPPORTED_CURRENCIES);
+                    SharedPreferences.Editor saved = preferences.edit()
+                            .putLong(PREF_KEYLESS_FX_LAST_SUCCESS, System.currentTimeMillis())
+                            .putLong(PREF_FX_UPDATED_AT, System.currentTimeMillis());
+                    for (Map.Entry<String, Double> entry : rates.entrySet()) {
+                        saved.putString(PREF_FX_RATE_PREFIX + entry.getKey(), entry.getValue().toString());
+                    }
+                    saved.apply();
+                    exchangeRatesFromUsd.clear();
+                    exchangeRatesFromUsd.putAll(rates);
+                    if (isUiAlive()) {
+                        updateUI();
+                    }
+                } catch (RuntimeException exception) {
+                    appendApiErrorLog("Frankfurter FX response invalid: " + exception.getMessage());
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<JsonElement> call, @NonNull Throwable throwable) {
+                exchangeRateRequestInProgress = false;
+                appendApiErrorLog("Frankfurter FX request failed: " + throwable.getClass().getSimpleName());
+            }
+        });
+    }
+
+    // Retained for rollback: select MetalCharts with USE_KEYLESS_FX in
+    // MarketDataProviders.
+    private void refreshMetalChartsExchangeRates() {
         long updatedAt = preferences.getLong(PREF_FX_UPDATED_AT, 0);
-        if (exchangeRateRequestInProgress
-                || (hasCompleteExchangeRates() && System.currentTimeMillis() - updatedAt < FX_RATE_REFRESH_INTERVAL_MS)
+        if (!PriceRetryPolicy.canRequestDaily(exchangeRateRequestInProgress, System.currentTimeMillis(),
+                preferences.getLong(PREF_FX_LAST_ATTEMPT, 0L),
+                preferences.getLong(PREF_METALS_RETRY_AT, 0L), hasCompleteExchangeRates() ? updatedAt : 0L)
                 || !CustomNetwork.isNetworkAvailable(mContext)) {
             return;
         }
@@ -1668,12 +2096,16 @@ public class MainActivity extends AppCompatActivity {
         }
 
         exchangeRateRequestInProgress = true;
+        preferences.edit().putLong(PREF_FX_LAST_ATTEMPT, System.currentTimeMillis()).apply();
         ApiWebservices apiWebservices = ApiHelperClass.getClient().create(ApiWebservices.class);
         Call<JsonObject> call = apiWebservices.getCurrencyRates("Bearer " + apiKey);
         call.enqueue(new Callback<JsonObject>() {
             @Override
             public void onResponse(@NonNull Call<JsonObject> call, @NonNull Response<JsonObject> response) {
                 exchangeRateRequestInProgress = false;
+                if (response.code() == 429) {
+                    recordMetalsRateLimit(response.headers().get("Retry-After"));
+                }
                 if (!isUiAlive()) {
                     return;
                 }
@@ -1682,7 +2114,8 @@ public class MainActivity extends AppCompatActivity {
                         || !"USD".equalsIgnoreCase(response.body().get("base").getAsString())
                         || !response.body().has("rates")
                         || !response.body().get("rates").isJsonObject()) {
-                    appendApiErrorLog("FX API response unsuccessful or did not use USD as its base.");
+                    appendApiErrorLog("FX API response unsuccessful or did not use USD as its base. HTTP="
+                            + response.code());
                     return;
                 }
 
@@ -1698,7 +2131,7 @@ public class MainActivity extends AppCompatActivity {
                             throw new IllegalStateException("Missing rate for " + currency);
                         }
                         double rate = responseRates.get(currency).getAsDouble();
-                        if (rate <= 0) {
+                        if (rate <= 0 || Double.isNaN(rate) || Double.isInfinite(rate)) {
                             throw new IllegalStateException("Invalid rate for " + currency);
                         }
                         updatedRates.put(currency, rate);
@@ -1829,8 +2262,12 @@ public class MainActivity extends AppCompatActivity {
         }
 
         String[] backupNames = availableBackups.toArray(new String[0]);
+        View titleView = getLayoutInflater().inflate(R.layout.view_restore_backup_title,
+                (ViewGroup) findViewById(android.R.id.content), false);
+        TextView locations = titleView.findViewById(R.id.restore_backup_locations);
+        locations.setText(BackupSyncManager.getRestoreFolderLocations(this));
         new AlertDialog.Builder(this)
-                .setTitle(R.string.restore_select_backup)
+                .setCustomTitle(titleView)
                 .setItems(backupNames, (dialog, which) -> showRestoreModeDialog(backupNames[which]))
                 .setPositiveButton(R.string.restore_enter_filename, (dialog, which) -> promptForBackupFileName(true))
                 .setNegativeButton(R.string.cancel, null)
@@ -1856,8 +2293,8 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         ioExecutor.execute(() -> {
-            BackupSyncManager.BackupResult restoreResult = BackupSyncManager.restoreNowResult(this, backupFileName,
-                    mode);
+            BackupSyncManager.BackupResult restoreResult = BackupSyncManager.restoreNowResult(
+                    this, backupFileName, mode);
             runOnUiThread(() -> {
                 if (!restoreResult.isSuccess()) {
                     Toast.makeText(this, getString(R.string.restore_failed, restoreResult.getMessage()),
@@ -1949,8 +2386,6 @@ public class MainActivity extends AppCompatActivity {
             if (grantResults.length == 0 || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(mContext, "Storage permission is required to add items.", Toast.LENGTH_LONG).show();
                 shouldNavigateToResList = false;
-            } else {
-                BackupSyncManager.exportSnapshot(this);
             }
         }
     }
@@ -2075,7 +2510,8 @@ public class MainActivity extends AppCompatActivity {
             spotPriceMovements.put(favourite.id(), PortfolioValueTrend.compare(
                     (double) price, previousPrice == null ? null : (double) previousPrice));
             latestSpotQuotes.put(favourite.id(), price);
-            preferences.edit().putFloat(quoteKey, price).apply();
+            preferences.edit().putFloat(quoteKey, price)
+                    .putLong(PREF_QUOTE_SUCCESS_PREFIX + favourite.id(), System.currentTimeMillis()).apply();
         }
     }
 
@@ -2107,7 +2543,8 @@ public class MainActivity extends AppCompatActivity {
             TextView amount = row.findViewById(R.id.spot_price_amount);
             TextView symbol = row.findViewById(R.id.spot_currency_symbol);
             TextView currency = row.findViewById(R.id.spot_currency_code);
-            label.setText(getString(R.string.spot_asset_unit, favourite.name, favourite.unit));
+            String assetLabel = getString(R.string.spot_asset_unit, favourite.name, favourite.unit);
+            label.setText(assetLabel);
             amount.setText(formatCurrencyValue(displayedPrice, formatter));
             amount.setTextColor(getSpotPriceMovementColor(favourite));
             symbol.setText(currencySymbol(rowCurrency));
@@ -2283,7 +2720,7 @@ public class MainActivity extends AppCompatActivity {
                 value = safeParse((String) rawValue);
             }
 
-            if (value > 0) {
+            if (value > 0 && !Float.isNaN(value) && !Float.isInfinite(value)) {
                 cachedCryptoPrices.put(cryptoType, value);
             }
         }
@@ -2318,7 +2755,7 @@ public class MainActivity extends AppCompatActivity {
                 value = safeParse((String) rawValue);
             }
 
-            if (value > 0) {
+            if (value > 0 && !Float.isNaN(value) && !Float.isInfinite(value)) {
                 cachedStockPrices.put(ticker, value);
             }
         }

@@ -67,6 +67,7 @@ public class SpotPriceFavouriteTest {
 
     @Test
     public void unitAndCurrencyAreExplicitAndOtherItemsAreNotMetals() {
+        assertEquals("crypto:bitcoin", SpotPriceFavourite.crypto("Bitcoin", "BITCOIN").id());
         assertNull(SpotPriceFavourite.metal("Other"));
         assertEquals("USD", SpotPriceFavourite.metal("Gold").currency);
         assertEquals("oz", SpotPriceFavourite.metal("Gold").unit);

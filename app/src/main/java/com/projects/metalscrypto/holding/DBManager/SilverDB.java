@@ -10,8 +10,7 @@ import android.util.Log;
 import java.util.ArrayList;
 import java.util.List;
 
-public class SilverDB extends SQLiteOpenHelper
-{
+public class SilverDB extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "DBSILVER.db";
     public static final String TABLE_NAME = "TABLESILVER";
 
@@ -23,10 +22,7 @@ public class SilverDB extends SQLiteOpenHelper
     private static final String TAG = "TAG";
     private static final String INDEX_UPDATE_DATE = "idx_silver_update_date";
 
-
-
-    public SilverDB(Context context)
-    {
+    public SilverDB(Context context) {
         super(context, DATABASE_NAME, null, 4);
     }
 
@@ -36,8 +32,7 @@ public class SilverDB extends SQLiteOpenHelper
                 X_S_PRICE + " TEXT NOT NULL , " +
                 X_G_PRICE + " TEXT NOT NULL , " +
                 X_DATE + " TEXT NOT NULL , " +
-                X_TIME + " TEXT NOT NULL )"
-        );
+                X_TIME + " TEXT NOT NULL )");
         ensureDateIndex(db);
     }
 
@@ -63,9 +58,9 @@ public class SilverDB extends SQLiteOpenHelper
 
         long result = db.insert(TABLE_NAME, null, initialValues);
 
-//        long newRowId = db.insert(TABLE_NAME, null, initialValues);
-//
-//        Log.e("InsertData", Long.toString(newRowId));
+        // long newRowId = db.insert(TABLE_NAME, null, initialValues);
+        //
+        // Log.e("InsertData", Long.toString(newRowId));
 
         return result != -1;
 
@@ -85,7 +80,7 @@ public class SilverDB extends SQLiteOpenHelper
         cv.put(X_G_PRICE, gold);
         cv.put(X_DATE, date);
         cv.put(X_TIME, time);
-        int updated = db.update(TABLE_NAME, cv, X_DATE + "=?", new String[]{date});
+        int updated = db.update(TABLE_NAME, cv, X_DATE + "=?", new String[] { date });
         db.close();
 
         return updated > 0;
@@ -101,11 +96,10 @@ public class SilverDB extends SQLiteOpenHelper
                 TABLE_NAME,
                 null,
                 X_DATE + "=?",
-                new String[]{date},
+                new String[] { date },
                 null,
                 null,
-                null
-        );
+                null);
 
         List<SilverDBModel> cartData = new ArrayList<>();
         if (cursor.moveToFirst()) {
@@ -127,9 +121,23 @@ public class SilverDB extends SQLiteOpenHelper
         return cartData;
     }
 
+    public List<SilverDBModel> getLatestSilverData() {
+        SQLiteDatabase db = getReadableDatabase();
+        String latestDate = null;
+        try (Cursor cursor = db.query(TABLE_NAME, new String[] { X_DATE }, null, null, null, null,
+                "substr(" + X_DATE + ",7,4) DESC, substr(" + X_DATE + ",4,2) DESC, substr("
+                        + X_DATE + ",1,2) DESC",
+                "1")) {
+            if (cursor.moveToFirst()) {
+                latestDate = cursor.getString(0);
+            }
+        }
+        db.close();
+        return latestDate == null ? new ArrayList<>() : getSilverData(latestDate);
+    }
+
     private void ensureDateIndex(SQLiteDatabase db) {
         db.execSQL("CREATE INDEX IF NOT EXISTS " + INDEX_UPDATE_DATE + " ON " + TABLE_NAME + "(" + X_DATE + ")");
     }
-
 
 }

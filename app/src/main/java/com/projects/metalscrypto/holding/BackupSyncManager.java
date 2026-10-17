@@ -45,6 +45,10 @@ public final class BackupSyncManager {
     private static final String APP_PREFS_STOCK_PRICE_PREFIX = "stock_price_";
     private static final String APP_PREFS_CRYPTO_PRICE_PREFIX = "crypto_price_";
     private static final String APP_PREFS_CRYPTO_ID_PREFIX = "crypto_id_";
+    private static final String APP_PREFS_PORTFOLIO_HISTORY_PREFIX = "pref_portfolio_value_history_";
+    private static final String APP_PREFS_PORTFOLIO_DATE = "pref_portfolio_value_date";
+    private static final String APP_PREFS_PORTFOLIO_CURRENT_AUD = "pref_portfolio_value_current_aud";
+    private static final String APP_PREFS_PORTFOLIO_PREVIOUS_AUD = "pref_portfolio_value_previous_aud";
 
     private BackupSyncManager() {
     }
@@ -109,6 +113,7 @@ public final class BackupSyncManager {
             root.put("exportedAt", nowDateTime());
             root.put("aboutText", readInternalAboutText(context));
             root.put("lookupPrefs", exportLookupPreferences(context));
+            root.put("portfolioValueHistory", exportPortfolioValueHistory(context));
 
             JSONArray itemArray = new JSONArray();
             for (HoldingItem item : items) {
@@ -127,6 +132,10 @@ public final class BackupSyncManager {
 
             String json = root.toString();
             writeInternal(context, resolvedBackupFileName, json);
+            String driveBackupWarning = DriveBackupManager.backupSnapshotIfConfigured(context, json);
+            if (driveBackupWarning != null && !driveBackupWarning.isEmpty()) {
+                publicWriteWarning += " (Drive backup failed: " + driveBackupWarning + ")";
+            }
 
             if (exportPublicFile) {
                 File externalFile = getPublicBackupFile(context, resolvedBackupFileName);
@@ -181,16 +190,51 @@ public final class BackupSyncManager {
     }
 
     public static BackupResult restoreNowResult(Context context, String backupFileName, RestoreMode mode) {
-        return importAndMerge(context, true, resolveBackupFileName(backupFileName),
-                mode == null ? RestoreMode.MERGE : mode);
+        if (context == null) {
+            return new BackupResult(false, "Context unavailable.");
+        }
+        String resolvedName = resolveBackupFileName(backupFileName);
+        RestoreMode resolvedMode = mode == null ? RestoreMode.MERGE : mode;
+        if (DriveBackupManager.hasSavedTreeUri(context)) {
+            return restoreDriveSnapshot(context, resolvedName, resolvedMode);
+        }
+        return importAndMerge(context, true, new File(context.getFilesDir(), resolvedName), resolvedMode);
+    }
+
+    public static BackupResult restoreDriveSnapshot(Context context, String backupFileName, RestoreMode mode) {
+        if (context == null) {
+            return new BackupResult(false, "Context unavailable.");
+        }
+        File restoreFile = null;
+        try {
+            String json = DriveBackupManager.readSnapshot(context, backupFileName);
+            if (TextUtils.isEmpty(json)) {
+                return new BackupResult(false, "Drive backup is empty.");
+            }
+            restoreFile = File.createTempFile("restore-", ".tmp", context.getCacheDir());
+            writeFile(restoreFile, json);
+            return importAndMerge(context, true, restoreFile,
+                    mode == null ? RestoreMode.MERGE : mode);
+        } catch (Exception exception) {
+            Log.e(TAG, "Failed to read Drive backup " + backupFileName, exception);
+            return new BackupResult(false,
+                    exception.getMessage() == null ? "Drive backup could not be read." : exception.getMessage());
+        } finally {
+            if (restoreFile != null && !restoreFile.delete()) {
+                Log.w(TAG, "Could not remove temporary restore file.");
+            }
+        }
     }
 
     public static boolean hasBackupFile(Context context, String backupFileName) {
         if (context == null) {
             return false;
         }
-        File backupFile = getReadableBackupFile(context, resolveBackupFileName(backupFileName));
-        return backupFile != null && backupFile.exists();
+        String resolvedName = resolveBackupFileName(backupFileName);
+        if (DriveBackupManager.hasSavedTreeUri(context)) {
+            return DriveBackupManager.hasSnapshot(context, resolvedName);
+        }
+        return new File(context.getFilesDir(), resolvedName).isFile();
     }
 
     public static String normalizeBackupFileName(String backupFileName) {
@@ -205,26 +249,24 @@ public final class BackupSyncManager {
         return backupFile != null && backupFile.exists();
     }
 
+    public static String getRestoreFolderLocations(Context context) {
+        String selectedFolder = DriveBackupManager.getFolderLocation(context);
+        return selectedFolder.isEmpty() ? context.getString(R.string.backup_private_storage) : selectedFolder;
+    }
+
     public static List<String> listAvailableBackupFiles(Context context) {
         List<String> names = new ArrayList<>();
         if (context == null) {
             return names;
+        }
+        if (DriveBackupManager.hasSavedTreeUri(context)) {
+            return DriveBackupManager.listSnapshots(context);
         }
         LinkedHashSet<String> uniqueNames = new LinkedHashSet<>();
 
         File[] internalFiles = context.getFilesDir() == null ? null : context.getFilesDir().listFiles();
         if (internalFiles != null) {
             for (File file : internalFiles) {
-                if (file != null && file.isFile() && file.getName().toLowerCase(Locale.US).endsWith(".json")) {
-                    uniqueNames.add(file.getName());
-                }
-            }
-        }
-
-        File externalDir = buildPublicBackupDirectory();
-        File[] externalFiles = externalDir == null ? null : externalDir.listFiles();
-        if (externalFiles != null) {
-            for (File file : externalFiles) {
                 if (file != null && file.isFile() && file.getName().toLowerCase(Locale.US).endsWith(".json")) {
                     uniqueNames.add(file.getName());
                 }
@@ -251,6 +293,11 @@ public final class BackupSyncManager {
         }
 
         File backupFile = getReadableBackupFile(context, backupFileName);
+        return importAndMerge(context, force, backupFile, mode);
+    }
+
+    private static BackupResult importAndMerge(Context context, boolean force, File backupFile,
+            RestoreMode mode) {
         if (backupFile == null || !backupFile.exists()) {
             return new BackupResult(false, "Backup file not found.");
         }
@@ -274,6 +321,7 @@ public final class BackupSyncManager {
                 writeInternal(context, ABOUT_FILE_NAME, aboutText);
             }
             applyLookupPreferences(context, root.optJSONObject("lookupPrefs"));
+            applyPortfolioValueHistory(context, root.optJSONObject("portfolioValueHistory"), mode);
 
             JSONArray items = root.optJSONArray("items");
             String itemFingerprint = BackupMergeFingerprint.create(items == null ? "[]" : items.toString());
@@ -347,7 +395,7 @@ public final class BackupSyncManager {
                     .apply();
             return new BackupResult(true, "Restore completed from " + backupFile.getName());
         } catch (Exception e) {
-            Log.e(TAG, "Failed to import backup " + backupFileName, e);
+            Log.e(TAG, "Failed to import backup " + backupFile.getName(), e);
             return new BackupResult(false, e.getMessage() == null ? "Unknown restore error." : e.getMessage());
         }
     }
@@ -408,6 +456,106 @@ public final class BackupSyncManager {
             putObjectSafely(root, "cryptoIds", cryptoIds);
         }
         return root;
+    }
+
+    private static JSONObject exportPortfolioValueHistory(Context context) throws Exception {
+        JSONObject history = new JSONObject();
+        JSONObject values = new JSONObject();
+        SharedPreferences appPrefs = context.getSharedPreferences(context.getString(R.string.app_name),
+                Context.MODE_PRIVATE);
+        for (java.util.Map.Entry<String, ?> entry : appPrefs.getAll().entrySet()) {
+            String key = entry.getKey();
+            Object rawValue = entry.getValue();
+            if (!key.startsWith(APP_PREFS_PORTFOLIO_HISTORY_PREFIX) || !(rawValue instanceof String)) {
+                continue;
+            }
+            String date = key.substring(APP_PREFS_PORTFOLIO_HISTORY_PREFIX.length());
+            String value = (String) rawValue;
+            if (date.matches("\\d{4}-\\d{2}-\\d{2}") && isValidPortfolioValue(value)) {
+                values.put(date, value);
+            }
+        }
+        history.put("values", values);
+        putPreferenceString(history, "comparisonDate", appPrefs, APP_PREFS_PORTFOLIO_DATE);
+        putPreferenceString(history, "currentAud", appPrefs, APP_PREFS_PORTFOLIO_CURRENT_AUD);
+        putPreferenceString(history, "previousAud", appPrefs, APP_PREFS_PORTFOLIO_PREVIOUS_AUD);
+        return history;
+    }
+
+    private static void putPreferenceString(JSONObject target, String jsonKey, SharedPreferences preferences,
+            String preferenceKey) throws Exception {
+        String value = preferences.getString(preferenceKey, null);
+        if (value != null && !value.trim().isEmpty()) {
+            target.put(jsonKey, value);
+        }
+    }
+
+    private static void applyPortfolioValueHistory(Context context, JSONObject history, RestoreMode mode) {
+        if (context == null) {
+            return;
+        }
+        SharedPreferences appPrefs = context.getSharedPreferences(context.getString(R.string.app_name),
+                Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = appPrefs.edit();
+        if (mode == RestoreMode.REPLACE) {
+            for (String key : appPrefs.getAll().keySet()) {
+                if (key.startsWith(APP_PREFS_PORTFOLIO_HISTORY_PREFIX)) {
+                    editor.remove(key);
+                }
+            }
+            editor.remove(APP_PREFS_PORTFOLIO_DATE)
+                    .remove(APP_PREFS_PORTFOLIO_CURRENT_AUD)
+                    .remove(APP_PREFS_PORTFOLIO_PREVIOUS_AUD);
+        }
+
+        if (history == null) {
+            editor.apply();
+            return;
+        }
+
+        JSONObject values = history.optJSONObject("values");
+        if (values != null) {
+            java.util.Iterator<String> dates = values.keys();
+            while (dates.hasNext()) {
+                String date = dates.next();
+                String value = values.optString(date, "");
+                if (date.matches("\\d{4}-\\d{2}-\\d{2}") && isValidPortfolioValue(value)) {
+                    editor.putString(APP_PREFS_PORTFOLIO_HISTORY_PREFIX + date, value);
+                }
+            }
+        }
+
+        String restoredDate = history.optString("comparisonDate", "");
+        String localDate = appPrefs.getString(APP_PREFS_PORTFOLIO_DATE, "");
+        if (!restoredDate.isEmpty() && (mode == RestoreMode.REPLACE || localDate.isEmpty()
+                || restoredDate.compareTo(localDate) >= 0)) {
+            editor.putString(APP_PREFS_PORTFOLIO_DATE, restoredDate);
+            putRestoredValue(editor, APP_PREFS_PORTFOLIO_CURRENT_AUD, history, "currentAud");
+            putRestoredValue(editor, APP_PREFS_PORTFOLIO_PREVIOUS_AUD, history, "previousAud");
+        }
+        editor.apply();
+    }
+
+    private static void putRestoredValue(SharedPreferences.Editor editor, String preferenceKey, JSONObject history,
+            String jsonKey) {
+        String value = history.optString(jsonKey, "");
+        if (isValidPortfolioValue(value)) {
+            editor.putString(preferenceKey, value);
+        } else {
+            editor.remove(preferenceKey);
+        }
+    }
+
+    private static boolean isValidPortfolioValue(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return false;
+        }
+        try {
+            double amount = Double.parseDouble(value);
+            return !Double.isNaN(amount) && !Double.isInfinite(amount);
+        } catch (NumberFormatException exception) {
+            return false;
+        }
     }
 
     private static void applyLookupPreferences(Context context, JSONObject lookupPrefs) {
@@ -629,11 +777,12 @@ public final class BackupSyncManager {
             return "";
         }
         File readable = getReadableBackupFile(context, BACKUP_FILE_NAME);
-        if (readable != null) {
-            return readable.getAbsolutePath();
-        }
-        File externalTarget = buildPublicBackupFile(BACKUP_FILE_NAME);
-        return externalTarget.getAbsolutePath();
+        String localPath = readable == null
+                ? buildPublicBackupFile(BACKUP_FILE_NAME).getAbsolutePath()
+                : readable.getAbsolutePath();
+        return DriveBackupManager.hasSavedTreeUri(context)
+                ? localPath + " | Google Drive/Silver Project"
+                : localPath;
     }
 
     private static File buildPublicBackupFile(String backupFileName) {

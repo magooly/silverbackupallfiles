@@ -1,5 +1,5 @@
 METALS & CRYPTO HOLDINGS - USER GUIDE
-App version 1.3.0 | Guide updated 16 October 2026
+App version 1.4.0 | Guide updated 16 October 2026
 
 LICENSING
 The Notes/About display includes the copyright, licence summary, and licensing
@@ -10,7 +10,7 @@ negotiated written licence and fee. Third-party material retains its own terms.
 The full licence and required notice are bundled as LICENSE.txt and NOTICE.txt.
 
 PAGE ONE
-On phone-width windows, Live Market Prices shows up to six favourites,
+On phone-width windows, Daily Market Prices shows up to six favourites,
 independent of the quantities you hold. Gold and Silver are the defaults, priced
 per ounce. The heading is static. Holding values use your saved quantities.
 On windows 600dp or wider, page one defaults to an all-held-items table with
@@ -31,6 +31,18 @@ saved daily value: green/up means increased; red/down means decreased. Equal or
 unavailable comparisons are neutral. Currency selection and whole-dollar display
 rounding do not affect the comparison.
 
+HOLDING VALUES
+Holdings are valued directly in the selected currency. A USD spot price can
+value a USD holding without an AUD exchange rate. Conversions for other holdings
+still need the relevant rates. The portfolio total remains N/A if any held
+position cannot be valued. Daily trend and graph history are calculated
+separately in AUD and require a valid AUD total.
+
+Manual spot-price entry is no longer available. Previous manual overrides are
+removed; provider prices and holdings are preserved. Saved valid provider prices
+and exchange rates are reused after failed lookups and restarts. N/A is still
+necessary if a required quote or rate has never been obtained.
+
 SPOT-PRICE FAVOURITES
 Open the three-dot menu and select Spot-price favourites. Use Add asset to choose
 Gold, Silver, Platinum, Palladium, supported cryptocurrencies, or portfolio stocks.
@@ -44,7 +56,8 @@ selected currency. If its conversion rate is unavailable, the saved price
 appears in its source currency. The last saved price is reused silently when
 offline. N/A appears only when no quote is available. Currency/whole-dollar
 settings apply. Saved selections refresh when opening online or using Get
-Latest Prices. Favourites never create holdings or change saved quantities.
+Latest Prices, subject to the daily limit. Favourites never create holdings or
+change saved quantities.
 
 Back on page one shows "Press Back again to exit." Press Back again within two
 seconds to leave. The confirmation resets when you leave page one. Other screens
@@ -52,14 +65,26 @@ and dialogs keep normal Back behavior.
 
 THREE-DOT MENU
 - Update Holding opens page two for adding, editing, and deleting.
-- Get Latest Prices retries market quotes while online.
+- Get Latest Prices checks for eligible daily updates while online; it does not
+	bypass the daily limit or provider cooldowns.
 - Display currency supports AUD, NZD, USD, GBP, EUR, CNY, and JPY.
 - Whole dollars only is a checkbox in the currency dialog. It rounds displays,
 	not saved amounts, calculations, or history. Settings apply immediately and
 	are remembered; press OK to close the dialog.
-- Notes, Backup, Restore, Version History, and Dark mode are also available.
+- Notes, Backup, Restore, Drive backup folder, Version History, and Dark mode are also available.
 	Notes opens the Notes dialog directly from either page. Close it to return to
 	where you opened it; Edit changes your saved Notes.
+
+BACKUP AND RESTORE
+Choose Backup or Restore and select Google Drive, then Silver Project. If you
+select its parent folder, the app creates Silver Project there. The folder
+permission is remembered. Drive backups use GFS retention: 7 daily Son, 4 weekly
+Father, and 12 monthly Grandfather snapshots. Files are created or updated only
+when you choose Backup, not on app start or after changes. Restore lists and reads
+only the displayed folder, or app-private backups if no folder is configured.
+It does not use other locations. Choose Merge or Replace. Backups include
+holdings, Notes text, lookup preferences, and portfolio history. Missing daily
+history dates are not interpolated.
 
 PAGE TWO
 - Metals: Gold/Silver use number of items, weight per item, and description.
@@ -76,26 +101,37 @@ Select an existing item to edit/delete. Successful deletion closes its dialog.
 Page-two entries are quantities or base AUD values, not currency conversions.
 
 PRICES AND N/A
-New share tickers request prices on return to page one online. Existing requested
-tickers can be refreshed with Get Latest Prices. Provider failures, missing
+Opening the dashboard and Get Latest Prices share a daily limit: one successful
+update per local calendar day for the metals batch, the FX batch, and each stock
+or crypto asset. New stock/crypto assets can receive their first daily quote.
+Failed lookups retain the last valid values and may retry after at least one
+minute. HTTP 429 delays further calls until Retry-After, or 15 minutes if no valid
+delay is supplied. These protections survive restarts. There is no timed retry
+loop, and multiple devices still share their provider account quota.
+
+New share tickers request prices on return to page one online. Provider failures, missing
 configuration, unsupported symbols, and account limits can prevent updates.
 Held assets without a quote show N/A; the total also shows N/A when incomplete.
 Missing FX rates can cause N/A too. Clear dismisses the multiline warning, not
 the underlying issue. A zero holding is different from an unavailable price.
 
-Metals use MetalCharts quotes assumed USD. CoinGecko crypto, EODHD ASX shares,
-and entered Other values are treated as AUD. MetalCharts FX rates are cached,
-with refresh after 24 hours when needed online. Offline prices/rates may be old;
-successful live Gold/Silver quotes override cache. Offline coverage varies by
-asset. Some base-metal mappings still need provider symbol/unit verification.
+Gold, Silver, Platinum, and Palladium use Gold-API USD prices per troy ounce.
+Exchange rates use Frankfurter's blended USD-base daily reference rates. These
+two sources require no API keys. CoinGecko crypto, EODHD ASX shares, and entered
+Other values remain treated as AUD. Daily limits and saved-value fallback still
+apply. Frankfurter rates may have different observation dates. Saved prices and
+rates may be old. Other base metals have no new keyless quote mapping; they only
+reuse a saved price where available. About also lists the active provider hosts.
 
 BACKUP AND RESTORE
-Automatic snapshots are internal. Manual Backup accepts a filename and attempts
-public JSON export to Documents/SilverHolding on the Android device. Default:
-holdings_backup.json. Check the result: Android storage restrictions may prevent
+Backups are manual only. Choose Backup to save to the selected folder and app
+storage; startup and edits do not create backups or automatically restore them.
+Public JSON export to Documents/SilverHolding is also attempted. Default local
+filename: holdings_backup.json. Android storage restrictions may prevent
 public export although the internal snapshot is saved. Keep an accessible copy
 separately before uninstalling or moving phones.
-Snapshots contain holdings, Notes text, and stock/crypto lookup preferences.
+Snapshots contain holdings, Notes text, stock/crypto lookup preferences, and
+30-day portfolio history.
 - Merge adds incoming non-detailed quantities/values. Identical holdings payloads
 	previously applied are skipped; changed backups can still add totals again.
 - Replace deletes current holdings first. Save a separate backup beforehand;

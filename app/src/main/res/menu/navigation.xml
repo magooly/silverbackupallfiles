@@ -37,13 +37,18 @@
         android:title="@string/action_restore"
         app:showAsAction="never" />
     <item
-        android:id="@+id/action_version_history"
+        android:id="@+id/action_drive_backup_folder"
         android:orderInCategory="106"
+        android:title="@string/drive_backup_folder"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_version_history"
+        android:orderInCategory="107"
         android:title="@string/action_version_history"
         app:showAsAction="never" />
     <item
         android:id="@+id/action_dark_mode"
-        android:orderInCategory="107"
+        android:orderInCategory="108"
         android:checkable="true"
         android:title="@string/action_dark_mode"
         app:showAsAction="never" />
