@@ -365,6 +365,23 @@ public class ResListActivity extends AppCompatActivity {
         return new DecimalFormat("#,##0.##").format(total);
     }
 
+    public String formatCompactHoldingValue(HoldingItem item) {
+        String total = item.getTotal();
+        if (total == null || "Shares".equalsIgnoreCase(item.getWhat())
+                || !"Total".equals(resolveCompactLabel(item.getItemType(), item.getWhat()))) {
+            return total;
+        }
+        try {
+            boolean wholeDollarsOnly = WholeMoneyFormat.wholeDollarsOnly(
+                    getSharedPreferences(getString(R.string.app_name), MODE_PRIVATE));
+            return WholeMoneyFormat.newFormatter(wholeDollarsOnly)
+                    .format(new java.math.BigDecimal(total.replace(",", "").trim()));
+        } catch (NumberFormatException exception) {
+            Log.w(TAG, "Invalid saved monetary total for holding " + item.getId(), exception);
+            return getString(R.string.currency_value_unavailable);
+        }
+    }
+
     public void displayPopUp(final String itemType, final String id, String no, String weight, String what,
             String total) {
         displayPopUp(itemType, id, no, weight, WEIGHT_UNIT_OZ, what, total);

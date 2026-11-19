@@ -54,8 +54,8 @@ From C:\wrhor\SilverBackupAllFiles run:
   configured, it lists app-private backups instead. Other locations are not used.
 - Opening the app and editing holdings or Notes do not create backups. Restore
   is also manual; no backup is automatically imported on startup.
-- Backups include holdings, Notes text, lookup preferences, and 30-day portfolio
-  history. Missing history dates are not interpolated. Public export may also be
+- Backups include holdings, Notes text, lookup preferences, ordered spot-price
+  favourites, and 30-day portfolio history. Missing history dates are not interpolated. Public export may also be
   attempted at Documents\SilverHolding, but Android storage rules can block it.
 - Merge adds incoming non-detailed amounts; identical holdings payloads previously
   applied are skipped. A changed snapshot can add amounts again. Replace deletes
@@ -83,19 +83,21 @@ From C:\wrhor\SilverBackupAllFiles run:
 - app/src/main/assets/about.txt/about.md are the bundled user guide.
 - Internal about.txt overrides external SilverHolding/about.txt, then bundled help.
   An app update does not overwrite saved Notes. Preserve personal text first.
-- Page one supports seven display currencies and a remembered Whole dollars only
-  checkbox. These are display settings; saved holdings/history remain unchanged.
+- Page one supports seven display currencies and a saved Whole dollars only
+  checkbox. It changes monetary readouts without changing saved holdings or history.
 - Gold/Silver spot quotes are per ounce regardless of holdings. New share tickers
   fetch their first quote online. Metals, FX, and each stock/crypto asset allow
-  one successful update per calendar day, including through Get Latest Prices.
+  up to four successful updates per calendar day, including through Get Latest
+  Prices.
   Failed lookups reuse saved quotes/rates and respect cooldowns. Manual spot-price
   entry is removed; old overrides are cleared without changing holdings.
-- On windows narrower than 600dp, page one keeps the six-favourite phone view.
-  At 600dp or wider, it defaults to an all-held-items table with columns Live
+- Page one defaults to Favourites below 600dp and All items at 600dp or wider.
+  The all-held-items table has columns Live
   price, Item, Number Held, and Holding value. Number Held shows ounces, shares,
   or coin amounts;
-  value-only items show a dash. The selector switches to Favourites and remembers
-  the wide-screen choice when a foldable changes width.
+  value-only items show a dash. Use Dashboard view in the three-dot menu to
+  switch at any width. The app remembers your choice when the device rotates
+  or changes width.
 - On wide screens, the Portfolio Value box includes a small 30-day graph without
   increasing its height. It uses saved daily AUD totals and leaves missing dates
   blank. History starts accumulating as the app records values.

@@ -1,5 +1,5 @@
 METALS & CRYPTO HOLDINGS - USER GUIDE
-App version 1.4.0 | Guide updated 16 October 2026
+App version 1.5.0 | Guide updated 19 November 2026
 
 LICENSING
 The Notes/About display includes the copyright, licence summary, and licensing
@@ -15,9 +15,9 @@ independent of the quantities you hold. Gold and Silver are the defaults, priced
 per ounce. The heading is static. Holding values use your saved quantities.
 On windows 600dp or wider, page one defaults to an all-held-items table with
 columns Live price, Item, Number Held, and Holding value. Number Held shows
-ounces, shares, or coin amounts; value-only items show a dash. Use the All items/Favourites
-selector to switch views. A foldable remembers the selected wide view when its
-width changes.
+ounces, shares, or coin amounts; value-only items show a dash. Use Dashboard
+view in the three-dot menu to switch between All items and Favourites at any
+width. The app remembers your choice when the device rotates or changes width.
 Live quote text is green when its price rises and red when it falls compared
 with the previous lookup. First-time and unchanged quotes use the normal color.
 This is separate from the daily Standard Portfolio Value trend.
@@ -49,13 +49,14 @@ Gold, Silver, Platinum, Palladium, supported cryptocurrencies, or portfolio stoc
 Add ASX ticker also accepts unowned stocks. Use the up/down arrows to reorder,
 the remove icon to remove a favourite, then Save. Cancel discards the edits.
 Select at most six distinct assets; removing all favourites is allowed.
-Selections and order are remembered locally, but are not in holdings JSON backups.
+Backups save the selection and order. Both Merge and Replace restore the saved
+list when present; older backups leave the current favourites unchanged.
 Other/manual items and base metals with unverified quote units are excluded.
 Each compact row identifies oz, coin, or share and shows its price in the
 selected currency. If its conversion rate is unavailable, the saved price
 appears in its source currency. The last saved price is reused silently when
-offline. N/A appears only when no quote is available. Currency/whole-dollar
-settings apply. Saved selections refresh when opening online or using Get
+offline. N/A appears only when no quote is available. Quotes follow the Whole
+dollars only setting. Saved selections refresh when opening online or using Get
 Latest Prices, subject to the daily limit. Favourites never create holdings or
 change saved quantities.
 
@@ -68,9 +69,10 @@ THREE-DOT MENU
 - Get Latest Prices checks for eligible daily updates while online; it does not
 	bypass the daily limit or provider cooldowns.
 - Display currency supports AUD, NZD, USD, GBP, EUR, CNY, and JPY.
-- Whole dollars only is a checkbox in the currency dialog. It rounds displays,
-	not saved amounts, calculations, or history. Settings apply immediately and
-	are remembered; press OK to close the dialog.
+- In Display currency, check Whole dollars only to round monetary readouts to
+	the nearest whole unit, or uncheck it to show two decimal places. This does
+	not change editable amounts, saved values, calculations, or history. Both
+	settings apply immediately and are remembered; press OK to close the dialog.
 - Notes, Backup, Restore, Drive backup folder, Version History, and Dark mode are also available.
 	Notes opens the Notes dialog directly from either page. Close it to return to
 	where you opened it; Edit changes your saved Notes.
@@ -101,9 +103,10 @@ Select an existing item to edit/delete. Successful deletion closes its dialog.
 Page-two entries are quantities or base AUD values, not currency conversions.
 
 PRICES AND N/A
-Opening the dashboard and Get Latest Prices share a daily limit: one successful
-update per local calendar day for the metals batch, the FX batch, and each stock
-or crypto asset. New stock/crypto assets can receive their first daily quote.
+Opening the dashboard and Get Latest Prices share a daily limit: up to four
+successful updates per local calendar day for the metals batch, the FX batch,
+and each stock or crypto asset. New stock/crypto assets can receive their first
+daily quote.
 Failed lookups retain the last valid values and may retry after at least one
 minute. HTTP 429 delays further calls until Retry-After, or 15 minutes if no valid
 delay is supplied. These protections survive restarts. There is no timed retry

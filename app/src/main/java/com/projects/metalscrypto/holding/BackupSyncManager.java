@@ -15,6 +15,7 @@ import com.projects.metalscrypto.holding.DBManager.HoldingItem;
 import com.projects.metalscrypto.holding.DBManager.HoldingsDb;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
@@ -42,6 +43,7 @@ public final class BackupSyncManager {
     private static final String PREF_MERGED_BACKUP_FINGERPRINTS = "merged_backup_fingerprints";
     private static final String BACKUP_FILE_NAME = "holdings_backup.json";
     private static final String ABOUT_FILE_NAME = "about.txt";
+    private static final String SPOT_FAVOURITES_BACKUP_KEY = "spotFavourites";
     private static final String APP_PREFS_STOCK_PRICE_PREFIX = "stock_price_";
     private static final String APP_PREFS_CRYPTO_PRICE_PREFIX = "crypto_price_";
     private static final String APP_PREFS_CRYPTO_ID_PREFIX = "crypto_id_";
@@ -333,7 +335,7 @@ public final class BackupSyncManager {
             if (BackupMergeFingerprint.shouldSkipMerge(mode == RestoreMode.MERGE, itemFingerprint,
                     mergedFingerprints)) {
                 prefs.edit().putLong(PREF_LAST_IMPORTED_TS, fileTs).apply();
-                return new BackupResult(true, "Backup contents were already merged; no changes made.");
+                return new BackupResult(true, "Holdings were already merged; no holdings added.");
             }
 
             HoldingsDb holdingsDb = new HoldingsDb(context);
@@ -418,7 +420,7 @@ public final class BackupSyncManager {
         return false;
     }
 
-    private static JSONObject exportLookupPreferences(Context context) {
+    private static JSONObject exportLookupPreferences(Context context) throws JSONException {
         JSONObject root = new JSONObject();
         JSONObject stockPrices = new JSONObject();
         JSONObject cryptoPrices = new JSONObject();
@@ -429,6 +431,10 @@ public final class BackupSyncManager {
 
         SharedPreferences appPrefs = context.getSharedPreferences(context.getString(R.string.app_name),
                 Context.MODE_PRIVATE);
+        String selection = appPrefs.getString(SpotPriceFavourite.PREFERENCE_KEY, null);
+        List<SpotPriceFavourite> favourites = selection == null
+                ? SpotPriceFavourite.defaults() : SpotPriceFavourite.restore(selection);
+        root.put(SPOT_FAVOURITES_BACKUP_KEY, new JSONArray(SpotPriceFavourite.serialize(favourites)));
         for (java.util.Map.Entry<String, ?> entry : appPrefs.getAll().entrySet()) {
             String key = entry.getKey();
             Object value = entry.getValue();
@@ -568,6 +574,16 @@ public final class BackupSyncManager {
         applyFloatPreferences(editor, APP_PREFS_STOCK_PRICE_PREFIX, lookupPrefs.optJSONObject("stockPrices"));
         applyFloatPreferences(editor, APP_PREFS_CRYPTO_PRICE_PREFIX, lookupPrefs.optJSONObject("cryptoPrices"));
         applyStringPreferences(editor, APP_PREFS_CRYPTO_ID_PREFIX, lookupPrefs.optJSONObject("cryptoIds"));
+        if (lookupPrefs.has(SPOT_FAVOURITES_BACKUP_KEY)) {
+            JSONArray payload = lookupPrefs.optJSONArray(SPOT_FAVOURITES_BACKUP_KEY);
+            List<SpotPriceFavourite> favourites = payload == null ? null
+                    : SpotPriceFavourite.restoreBackupSelection(payload.toString());
+            if (favourites != null) {
+                editor.putString(SpotPriceFavourite.PREFERENCE_KEY, SpotPriceFavourite.serialize(favourites));
+            } else {
+                Log.w(TAG, "Invalid spot-price favourites in backup; keeping the current selection.");
+            }
+        }
         editor.apply();
     }
 

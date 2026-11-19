@@ -11,6 +11,7 @@ import java.util.Locale;
 
 final class SpotPriceFavourite {
     static final int LIMIT = 6;
+    static final String PREFERENCE_KEY = "pref_spot_favourites";
     final String kind;
     final String key;
     final String name;
@@ -70,6 +71,14 @@ final class SpotPriceFavourite {
     }
 
     static List<SpotPriceFavourite> restore(String json) {
+        return restore(json, false);
+    }
+
+    static List<SpotPriceFavourite> restoreBackupSelection(String json) {
+        return restore(json, true);
+    }
+
+    private static List<SpotPriceFavourite> restore(String json, boolean fromBackup) {
         List<SpotPriceFavourite> restored = new ArrayList<>();
         try {
             for (JsonElement entry : JsonParser.parseString(json).getAsJsonArray()) {
@@ -84,11 +93,13 @@ final class SpotPriceFavourite {
                 } else if ("crypto".equals(kind)) {
                     favourite = crypto(asset.get("name").getAsString(), key);
                 }
-                add(restored, favourite);
+                if (!add(restored, favourite) && fromBackup) {
+                    return null;
+                }
             }
             return restored;
         } catch (RuntimeException exception) {
-            return defaults();
+            return fromBackup ? null : defaults();
         }
     }
 

@@ -9,17 +9,42 @@ import java.util.Calendar;
 
 public class PriceRetryPolicyTest {
     @Test
-    public void dailyGateBlocksSameDayAndAllowsNextCalendarDay() {
+    public void dailyGateAllowsRemainingUpdatesSameDayAndAllowsNextCalendarDay() {
         Calendar day = Calendar.getInstance();
         day.clear();
         day.set(2026, Calendar.OCTOBER, 17, 12, 0, 0);
         long success = day.getTimeInMillis();
-        assertFalse(PriceRetryPolicy.canRequestDaily(false, success + 120_000L, 0L, 0L, success));
+        assertTrue(PriceRetryPolicy.canRequestDaily(false, success + 120_000L, 0L, 0L, success));
         day.add(Calendar.DAY_OF_YEAR, 1);
         assertTrue(PriceRetryPolicy.canRequestDaily(false, day.getTimeInMillis(), 0L, 0L, success));
         assertFalse(PriceRetryPolicy.canRequestDaily(false, day.getTimeInMillis(), 0L,
                 day.getTimeInMillis() + 60_000L, success));
         assertTrue(PriceRetryPolicy.canRequestDaily(false, success, 0L, 0L, 0L));
+    }
+
+    @Test
+    public void dailyGateAllowsFourSuccessfulUpdatesAndBlocksTheFifth() {
+        Calendar day = Calendar.getInstance();
+        day.clear();
+        day.set(2026, Calendar.OCTOBER, 17, 12, 0, 0);
+        long success = day.getTimeInMillis();
+
+        assertTrue(PriceRetryPolicy.canRequestDaily(false, success + 120_000L, 0L, 0L, success, 1));
+        assertTrue(PriceRetryPolicy.canRequestDaily(false, success + 120_000L, 0L, 0L, success, 2));
+        assertTrue(PriceRetryPolicy.canRequestDaily(false, success + 120_000L, 0L, 0L, success, 3));
+        assertFalse(PriceRetryPolicy.canRequestDaily(false, success + 120_000L, 0L, 0L, success, 4));
+    }
+
+    @Test
+    public void savedDailyCountMigratesPriorSuccessAndResetsOnNextLocalDay() {
+        Calendar day = Calendar.getInstance();
+        day.clear();
+        day.set(2026, Calendar.OCTOBER, 17, 12, 0, 0);
+        long success = day.getTimeInMillis();
+        assertEquals(1, PriceRetryPolicy.successfulUpdatesToday(success + 120_000L, success, 0));
+
+        day.add(Calendar.DAY_OF_YEAR, 1);
+        assertEquals(0, PriceRetryPolicy.successfulUpdatesToday(day.getTimeInMillis(), success, 4));
     }
 
     @Test
@@ -34,7 +59,7 @@ public class PriceRetryPolicyTest {
         assertFalse(PriceRetryPolicy.canRequestDaily(false, newYear, newYear - 1000L, 0L, previousSuccess));
         assertFalse(PriceRetryPolicy.canRequestDaily(true, newYear, 0L, 0L, previousSuccess));
         assertTrue(PriceRetryPolicy.canRequestDaily(false, newYear, 0L, 0L, 0L));
-        assertFalse(PriceRetryPolicy.canRequestDaily(false, newYear + 120_000L, 0L, 0L, newYear));
+        assertTrue(PriceRetryPolicy.canRequestDaily(false, newYear + 120_000L, 0L, 0L, newYear));
     }
 
     @Test

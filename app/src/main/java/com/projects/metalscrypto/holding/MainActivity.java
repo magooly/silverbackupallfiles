@@ -23,7 +23,6 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
-import android.widget.RadioGroup;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -34,8 +33,8 @@ import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
-import androidx.appcompat.widget.Toolbar;
 import androidx.appcompat.widget.AppCompatCheckBox;
+import androidx.appcompat.widget.Toolbar;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.ViewCompat;
@@ -61,7 +60,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -99,14 +97,12 @@ public class MainActivity extends AppCompatActivity {
     private static final String PREF_PRICE_NOTICE_ACTIVE = "pref_price_notice_active";
     private static final String PREF_PRICE_NOTICE_DISMISSED = "pref_price_notice_dismissed";
     private static final String PREF_DISPLAY_CURRENCY = "pref_display_currency";
-    private static final String PREF_WHOLE_DOLLARS_ONLY = "pref_whole_dollars_only";
-    private static final String PREF_WIDE_DASHBOARD_ALL_ITEMS = "pref_wide_dashboard_all_items";
+    private static final String PREF_DASHBOARD_ALL_ITEMS = "pref_wide_dashboard_all_items";
     private static final String PREF_PORTFOLIO_VALUE_DATE = "pref_portfolio_value_date";
     private static final String PREF_PORTFOLIO_VALUE_CURRENT_AUD = "pref_portfolio_value_current_aud";
     private static final String PREF_PORTFOLIO_VALUE_PREVIOUS_AUD = "pref_portfolio_value_previous_aud";
     private static final String PREF_PORTFOLIO_VALUE_HISTORY_PREFIX = "pref_portfolio_value_history_";
     private static final int PORTFOLIO_VALUE_HISTORY_DAYS = 30;
-    private static final String PREF_SPOT_FAVOURITES = "pref_spot_favourites";
     private static final String PREF_SPOT_QUOTE_PREFIX = "spot_quote_";
     private static final String PREF_FX_UPDATED_AT = "pref_fx_updated_at";
     private static final String PREF_METALS_RETRY_AT = "pref_metals_retry_at";
@@ -186,7 +182,6 @@ public class MainActivity extends AppCompatActivity {
     private int pendingDriveAction = DRIVE_ACTION_NONE;
     private LinearLayout llDynamicHoldings;
     private LinearLayout allItemMarketHoldingRows;
-    private RadioGroup dashboardViewToggle;
     private View spotFavouritesCard, holdingValuesCard, allItemsCard;
     private LinearLayout llPriceNotice;
     private final List<HoldingSummary> dynamicHoldings = new ArrayList<>();
@@ -270,6 +265,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        loadSpotFavourites();
         refreshHoldingSummaries();
         getAPIdata();
     }
@@ -319,7 +315,8 @@ public class MainActivity extends AppCompatActivity {
         if (!PriceRetryPolicy.canRequestDaily(metalsRequestInProgress, now,
                 preferences.getLong(PREF_METALS_LAST_ATTEMPT, 0L),
                 preferences.getLong(PREF_METALS_RETRY_AT, 0L),
-                preferences.getLong(PREF_METALS_LAST_SUCCESS, 0L))) {
+                preferences.getLong(PREF_METALS_LAST_SUCCESS, 0L),
+                preferences.getInt(dailySuccessCountKey(PREF_METALS_LAST_SUCCESS), 0))) {
             updateMarketRefreshStatus();
             return;
         }
@@ -392,8 +389,10 @@ public class MainActivity extends AppCompatActivity {
                     }
 
                     if (hasUpdatedPrice) {
-                        preferences.edit().putBoolean(PREF_METALS_REFRESH_FAILED, false)
-                                .putLong(PREF_METALS_LAST_SUCCESS, System.currentTimeMillis()).apply();
+                        SharedPreferences.Editor success = preferences.edit()
+                                .putBoolean(PREF_METALS_REFRESH_FAILED, false);
+                        recordDailySuccess(success, PREF_METALS_LAST_SUCCESS, System.currentTimeMillis());
+                        success.apply();
                         updateMarketRefreshStatus();
                         updateUI();
                         if (lv_gold_amt > 0 && lv_slv_amt > 0) {
@@ -437,10 +436,12 @@ public class MainActivity extends AppCompatActivity {
 
     private void getKeylessMetalData() {
         long now = System.currentTimeMillis();
+        String successKey = activeMetalsKey(PREF_METALS_LAST_SUCCESS);
         if (!PriceRetryPolicy.canRequestDaily(metalsRequestInProgress, now,
                 preferences.getLong(activeMetalsKey(PREF_METALS_LAST_ATTEMPT), 0L),
                 preferences.getLong(activeMetalsKey(PREF_METALS_RETRY_AT), 0L),
-                preferences.getLong(activeMetalsKey(PREF_METALS_LAST_SUCCESS), 0L))) {
+                preferences.getLong(successKey, 0L),
+                preferences.getInt(dailySuccessCountKey(successKey), 0))) {
             updateMarketRefreshStatus();
             return;
         }
@@ -502,7 +503,7 @@ public class MainActivity extends AppCompatActivity {
         SharedPreferences.Editor result = preferences.edit().putBoolean(
                 activeMetalsKey(PREF_METALS_REFRESH_FAILED), !successful);
         if (successful) {
-            result.putLong(activeMetalsKey(PREF_METALS_LAST_SUCCESS), System.currentTimeMillis());
+            recordDailySuccess(result, activeMetalsKey(PREF_METALS_LAST_SUCCESS), System.currentTimeMillis());
         }
         result.apply();
         metalsRequestInProgress = false;
@@ -611,7 +612,8 @@ public class MainActivity extends AppCompatActivity {
         long now = System.currentTimeMillis();
         if (!PriceRetryPolicy.canRequestDaily(assetRequestsInProgress.contains(id), now,
                 preferences.getLong(PREF_QUOTE_ATTEMPT_PREFIX + id, 0L),
-                preferences.getLong(retryKey, 0L), preferences.getLong(PREF_QUOTE_SUCCESS_PREFIX + id, 0L))) {
+                preferences.getLong(retryKey, 0L), preferences.getLong(PREF_QUOTE_SUCCESS_PREFIX + id, 0L),
+                preferences.getInt(dailySuccessCountKey(PREF_QUOTE_SUCCESS_PREFIX + id), 0))) {
             return false;
         }
         assetRequestsInProgress.add(id);
@@ -1119,41 +1121,37 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupDashboardViewMode() {
-        dashboardViewToggle = findViewById(R.id.dashboard_view_toggle);
         spotFavouritesCard = findViewById(R.id.card_spot_favourites);
         holdingValuesCard = findViewById(R.id.card_holding_values);
         allItemsCard = findViewById(R.id.card_all_items);
         allItemMarketHoldingRows = findViewById(R.id.all_item_market_holding_rows);
+        applyDashboardView(isAllItemsViewSelected());
+    }
 
-        boolean largeWindow = getResources().getConfiguration().screenWidthDp >= 600;
-        if (!largeWindow) {
-            dashboardViewToggle.setVisibility(View.GONE);
-            applyDashboardView(false);
-            return;
-        }
+    private boolean isAllItemsViewSelected() {
+        return preferences.getBoolean(PREF_DASHBOARD_ALL_ITEMS,
+                getResources().getConfiguration().screenWidthDp >= 600);
+    }
 
-        dashboardViewToggle.setVisibility(View.VISIBLE);
-        boolean showAllItems = preferences.getBoolean(PREF_WIDE_DASHBOARD_ALL_ITEMS, true);
-        dashboardViewToggle.check(showAllItems
-                ? R.id.dashboard_view_all_items
-                : R.id.dashboard_view_favourites);
-        applyDashboardView(showAllItems);
-        dashboardViewToggle.setOnCheckedChangeListener((group, checkedId) -> {
-            if (checkedId != R.id.dashboard_view_all_items
-                    && checkedId != R.id.dashboard_view_favourites) {
-                return;
-            }
-            boolean allItemsSelected = checkedId == R.id.dashboard_view_all_items;
-            preferences.edit().putBoolean(PREF_WIDE_DASHBOARD_ALL_ITEMS, allItemsSelected).apply();
-            applyDashboardView(allItemsSelected);
-        });
+    private void showDashboardViewPicker() {
+        String[] views = { getString(R.string.dashboard_view_all_items),
+                getString(R.string.dashboard_view_favourites) };
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.action_dashboard_view)
+                .setSingleChoiceItems(views, isAllItemsViewSelected() ? 0 : 1, (dialog, which) -> {
+                    boolean showAllItems = which == 0;
+                    preferences.edit().putBoolean(PREF_DASHBOARD_ALL_ITEMS, showAllItems).apply();
+                    applyDashboardView(showAllItems);
+                    dialog.dismiss();
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
     }
 
     private void applyDashboardView(boolean showAllItems) {
-        boolean useAllItemsView = getResources().getConfiguration().screenWidthDp >= 600 && showAllItems;
-        spotFavouritesCard.setVisibility(useAllItemsView ? View.GONE : View.VISIBLE);
-        holdingValuesCard.setVisibility(useAllItemsView ? View.GONE : View.VISIBLE);
-        allItemsCard.setVisibility(useAllItemsView ? View.VISIBLE : View.GONE);
+        spotFavouritesCard.setVisibility(showAllItems ? View.GONE : View.VISIBLE);
+        holdingValuesCard.setVisibility(showAllItems ? View.GONE : View.VISIBLE);
+        allItemsCard.setVisibility(showAllItems ? View.VISIBLE : View.GONE);
     }
 
     private void refreshHoldingSummaries() {
@@ -1192,9 +1190,7 @@ public class MainActivity extends AppCompatActivity {
     private void updateUI() {
         float current_silver_price = getCurrentPriceByType(TYPE_SILVER);
         float current_gold_price = getCurrentPriceByType(TYPE_GOLD);
-        DecimalFormat priceFormat = new DecimalFormat(
-                preferences.getBoolean(PREF_WHOLE_DOLLARS_ONLY, false) ? "#,##0" : "#,##0.00");
-        priceFormat.setRoundingMode(RoundingMode.HALF_UP);
+        DecimalFormat priceFormat = WholeMoneyFormat.newFormatter(WholeMoneyFormat.wholeDollarsOnly(preferences));
         updateCurrencyLabels();
         renderSpotFavourites(priceFormat);
 
@@ -1817,6 +1813,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.navigation, menu);
+        getMenuInflater().inflate(R.menu.dashboard, menu);
         MenuItem darkModeItem = menu.findItem(R.id.action_dark_mode);
         if (darkModeItem != null) {
             darkModeItem.setChecked(preferences.getBoolean(PREF_DARK_MODE, false));
@@ -1841,6 +1838,10 @@ public class MainActivity extends AppCompatActivity {
         }
         if (id == R.id.action_spot_favourites) {
             showSpotFavouritesEditor();
+            return true;
+        }
+        if (id == R.id.action_dashboard_view) {
+            showDashboardViewPicker();
             return true;
         }
         if (id == R.id.action_about) {
@@ -1966,9 +1967,9 @@ public class MainActivity extends AppCompatActivity {
 
         AppCompatCheckBox wholeDollarsOnly = new AppCompatCheckBox(this);
         wholeDollarsOnly.setText(R.string.whole_dollars_only);
-        wholeDollarsOnly.setChecked(preferences.getBoolean(PREF_WHOLE_DOLLARS_ONLY, false));
+        wholeDollarsOnly.setChecked(WholeMoneyFormat.wholeDollarsOnly(preferences));
         wholeDollarsOnly.setOnCheckedChangeListener((button, checked) -> {
-            preferences.edit().putBoolean(PREF_WHOLE_DOLLARS_ONLY, checked).apply();
+            preferences.edit().putBoolean(WholeMoneyFormat.PREFERENCE_KEY, checked).apply();
             updateUI();
         });
 
@@ -2025,13 +2026,12 @@ public class MainActivity extends AppCompatActivity {
 
     private void refreshKeylessExchangeRates() {
         long now = System.currentTimeMillis();
-        long lastSuccess = hasCompleteExchangeRates()
-                ? preferences.getLong(PREF_KEYLESS_FX_LAST_SUCCESS, 0L)
-                : 0L;
+        long lastSuccess = preferences.getLong(PREF_KEYLESS_FX_LAST_SUCCESS, 0L);
         if (!CustomNetwork.isNetworkAvailable(mContext)
                 || !PriceRetryPolicy.canRequestDaily(exchangeRateRequestInProgress, now,
                         preferences.getLong(PREF_KEYLESS_FX_LAST_ATTEMPT, 0L),
-                        preferences.getLong(PREF_KEYLESS_FX_RETRY_AT, 0L), lastSuccess)) {
+                        preferences.getLong(PREF_KEYLESS_FX_RETRY_AT, 0L), lastSuccess,
+                        preferences.getInt(dailySuccessCountKey(PREF_KEYLESS_FX_LAST_SUCCESS), 0))) {
             return;
         }
         exchangeRateRequestInProgress = true;
@@ -2053,9 +2053,10 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     Map<String, Double> rates = MarketDataProviders.parseExchangeRates(
                             response.body(), SUPPORTED_CURRENCIES);
+                    long successTime = System.currentTimeMillis();
                     SharedPreferences.Editor saved = preferences.edit()
-                            .putLong(PREF_KEYLESS_FX_LAST_SUCCESS, System.currentTimeMillis())
-                            .putLong(PREF_FX_UPDATED_AT, System.currentTimeMillis());
+                            .putLong(PREF_FX_UPDATED_AT, successTime);
+                    recordDailySuccess(saved, PREF_KEYLESS_FX_LAST_SUCCESS, successTime);
                     for (Map.Entry<String, Double> entry : rates.entrySet()) {
                         saved.putString(PREF_FX_RATE_PREFIX + entry.getKey(), entry.getValue().toString());
                     }
@@ -2084,7 +2085,8 @@ public class MainActivity extends AppCompatActivity {
         long updatedAt = preferences.getLong(PREF_FX_UPDATED_AT, 0);
         if (!PriceRetryPolicy.canRequestDaily(exchangeRateRequestInProgress, System.currentTimeMillis(),
                 preferences.getLong(PREF_FX_LAST_ATTEMPT, 0L),
-                preferences.getLong(PREF_METALS_RETRY_AT, 0L), hasCompleteExchangeRates() ? updatedAt : 0L)
+                preferences.getLong(PREF_METALS_RETRY_AT, 0L), updatedAt,
+                preferences.getInt(dailySuccessCountKey(PREF_FX_UPDATED_AT), 0))
                 || !CustomNetwork.isNetworkAvailable(mContext)) {
             return;
         }
@@ -2143,8 +2145,8 @@ public class MainActivity extends AppCompatActivity {
 
                 exchangeRatesFromUsd.clear();
                 exchangeRatesFromUsd.putAll(updatedRates);
-                SharedPreferences.Editor rateEditor = preferences.edit()
-                        .putLong(PREF_FX_UPDATED_AT, System.currentTimeMillis());
+                SharedPreferences.Editor rateEditor = preferences.edit();
+                recordDailySuccess(rateEditor, PREF_FX_UPDATED_AT, System.currentTimeMillis());
                 for (Map.Entry<String, Double> entry : updatedRates.entrySet()) {
                     rateEditor.putString(PREF_FX_RATE_PREFIX + entry.getKey(), String.valueOf(entry.getValue()));
                 }
@@ -2303,6 +2305,7 @@ public class MainActivity extends AppCompatActivity {
                     return;
                 }
                 migrateLegacyHoldings();
+                loadSpotFavourites();
                 refreshHoldingSummaries();
                 Toast.makeText(this, restoreResult.getMessage(), Toast.LENGTH_SHORT).show();
             });
@@ -2484,17 +2487,18 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadSpotFavourites() {
         spotFavourites.clear();
-        if (!preferences.contains(PREF_SPOT_FAVOURITES)) {
+        if (!preferences.contains(SpotPriceFavourite.PREFERENCE_KEY)) {
             spotFavourites.addAll(SpotPriceFavourite.defaults());
             return;
         }
-        spotFavourites.addAll(SpotPriceFavourite.restore(preferences.getString(PREF_SPOT_FAVOURITES, "[]")));
+        spotFavourites.addAll(SpotPriceFavourite.restore(preferences.getString(SpotPriceFavourite.PREFERENCE_KEY, "[]")));
     }
 
     private void saveSpotFavourites(List<SpotPriceFavourite> selected) {
         spotFavourites.clear();
         spotFavourites.addAll(selected);
-        preferences.edit().putString(PREF_SPOT_FAVOURITES, SpotPriceFavourite.serialize(spotFavourites)).apply();
+        preferences.edit().putString(SpotPriceFavourite.PREFERENCE_KEY, SpotPriceFavourite.serialize(spotFavourites))
+                .apply();
         updateUI();
         getLiveData();
     }
@@ -2510,9 +2514,24 @@ public class MainActivity extends AppCompatActivity {
             spotPriceMovements.put(favourite.id(), PortfolioValueTrend.compare(
                     (double) price, previousPrice == null ? null : (double) previousPrice));
             latestSpotQuotes.put(favourite.id(), price);
-            preferences.edit().putFloat(quoteKey, price)
-                    .putLong(PREF_QUOTE_SUCCESS_PREFIX + favourite.id(), System.currentTimeMillis()).apply();
+            String successKey = PREF_QUOTE_SUCCESS_PREFIX + favourite.id();
+            SharedPreferences.Editor saved = preferences.edit().putFloat(quoteKey, price);
+            recordDailySuccess(saved, successKey, System.currentTimeMillis());
+            saved.apply();
         }
+    }
+
+    private static String dailySuccessCountKey(String successKey) {
+        return successKey + "_count";
+    }
+
+    private void recordDailySuccess(SharedPreferences.Editor editor, String successKey, long successTime) {
+        String countKey = dailySuccessCountKey(successKey);
+        int todayCount = PriceRetryPolicy.successfulUpdatesToday(
+                successTime,
+                preferences.getLong(successKey, 0L),
+                preferences.getInt(countKey, 0));
+        editor.putLong(successKey, successTime).putInt(countKey, todayCount + 1);
     }
 
     private void renderSpotFavourites(DecimalFormat formatter) {

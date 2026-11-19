@@ -1,6 +1,6 @@
 # Metals & Crypto Holdings
 
-Updated: 16 October 2026. App version: 1.4.0 (versionCode 5).
+Updated: 19 November 2026. App version: 1.5.0 (versionCode 6).
 
 ## Licence And Contact
 
@@ -23,13 +23,13 @@ licence/contact summary independently of editable Notes.
 Android portfolio tracker, written in Java with XML views. Holdings are saved locally in SQLite. On phone-width windows, page one shows up to six chosen unit-price favourites, holding values, and the portfolio total. On windows 600dp or wider, it defaults to an all-held-items table. Gold and Silver are the default favourites; their quotes remain requested even with no holdings.
 
 - Three-dot menu: Update Holding, Get Latest Prices, Display currency, Spot-price favourites, Notes, Backup, Restore, Version History, and Dark mode.
-- Spot-price favourites opens an ordered editor: Add asset, move up/down, remove, then Save. Cancel discards changes. Choose Gold, Silver, Platinum, Palladium, supported cryptocurrencies, or portfolio stocks; Add ASX ticker also accepts unowned stocks. At most six distinct assets can be saved, including an empty selection. Other/manual values and unverified base-metal units are excluded. Selection/order are stored locally, not included in holdings JSON backups.
+- Spot-price favourites opens an ordered editor: Add asset, move up/down, remove, then Save. Cancel discards changes. Choose Gold, Silver, Platinum, Palladium, supported cryptocurrencies, or portfolio stocks; Add ASX ticker also accepts unowned stocks. At most six distinct assets can be saved, including an empty selection. Other/manual values and unverified base-metal units are excluded. Both Merge and Replace restore the saved favourites in order when the backup includes them. Older backups leave the current favourites unchanged.
 - The heading reads Daily Market Prices. Compact favourite rows show their unit (oz/coin/share) and price in the selected display currency; if conversion is unavailable, the saved price appears in its source currency. The last valid price is reused when offline or when a lookup fails. Opening the app and Get Latest Prices both observe the daily limit. Adding/removing favourites never adds or removes holdings.
-- On windows 600dp or wider, the All items/Favourites selector switches between an all-held-items table and the existing six-favourite view. The table columns are Live price, Item, Number Held, and Holding value. Number Held shows ounces, shares, or coin amounts; value-only Other items show a dash. The selected wide-screen view is remembered when a foldable changes width.
+- On page one, use the three-dot menu's Dashboard view option to switch between All items and Favourites at any width. The table columns are Live price, Item, Number Held, and Holding value. Number Held shows ounces, shares, or coin amounts; value-only Other items show a dash. Once selected, the view is remembered when a foldable changes width or rotates.
 - On wide screens, the Portfolio Value box includes a compact 30-day graph at its left without increasing the box height. It uses saved daily unrounded AUD totals; missing dates are left blank, not interpolated. History accumulates as the app records values and is not reconstructed for earlier days.
 - Live market-price text is green when a quote rises and red when it falls compared with the previous lookup. First-time and unchanged quotes use the normal text color. This is separate from the daily Portfolio Value trend; the quote colors also have light- and dark-theme variants.
 - Page-one Back shows "Press Back again to exit." Press again within two seconds to leave; the confirmation resets when you leave page one. Other screens and dialogs retain normal Back behavior.
-- Currency options: AUD, NZD, USD, GBP, EUR, CNY, and JPY. Whole dollars only rounds page-one displays; calculations, saved holdings, and history are unchanged. Settings apply immediately and persist; OK closes the dialog.
+- Currency options: AUD, NZD, USD, GBP, EUR, CNY, and JPY. In Display currency, check Whole dollars only to round monetary readouts to the nearest whole unit, or uncheck it to show two decimal places. Both settings apply immediately and persist; OK closes the dialog. Editable amounts, quantities, calculations, saved holdings, and history are unchanged.
 - Standard Portfolio Value uses green/up or red/down to compare the unrounded AUD total with the previous saved daily value. It is neutral when unchanged or when no valid comparison is available; display currency and rounding do not affect the trend.
 - Page two supports Metals, Crypto, Stocks, and Other. Gold/Silver use item count, weight, and description; Silver supports oz/kg. Other metals use units, crypto uses coin amounts, stocks use shares, and Other uses a total AUD value.
 - Use uppercase ASX tickers on first entry, such as TLS or BHP. Subsequent additions recognize existing stocks case-insensitively, combine shares, and preserve ticker classification.
@@ -44,7 +44,7 @@ Holding values and the displayed portfolio total are calculated directly in the 
 
 Manual spot-price entry has been removed. Existing manual overrides are cleared without changing provider quotes or holding quantities. The last valid provider quotes and exchange rates are kept across restarts and failed lookups; N/A remains necessary only when a required quote or rate has never been obtained.
 
-Prices update at most once successfully per device-local calendar day: metals in one batch, FX in one batch, and stocks/crypto per asset. Get Latest Prices follows the same daily limits. New stock/crypto assets can receive their first quote that day. Failed attempts may be retried subject to in-flight protection, a one-minute minimum interval, and persisted HTTP 429 Retry-After cooldowns (15-minute fallback). No timed retry loop runs. The status line shows daily-update and metals rate-limit information. Limits on multiple devices still count against the provider account quota.
+Prices update up to four times successfully per device-local calendar day: metals in one batch, FX in one batch, and stocks/crypto per asset. Get Latest Prices follows the same daily limits. New stock/crypto assets can receive their first quote that day. Failed attempts may be retried subject to in-flight protection, a one-minute minimum interval, and persisted HTTP 429 Retry-After cooldowns (15-minute fallback). No timed retry loop runs. The status line shows daily-update and metals rate-limit information. Limits on multiple devices still count against the provider account quota.
 
 Metals use the keyless Gold-API endpoints at https://api.gold-api.com/ for Gold (XAU), Silver (XAG), Platinum (XPT), and Palladium (XPD), requested in USD per troy ounce. Currency rates use the keyless Frankfurter blended daily feed at https://api.frankfurter.dev/v2/rates with USD as base. Rates may carry different observation dates and are daily reference rates, not live trading rates. CoinGecko crypto and EODHD ASX shares remain unchanged and are treated as AUD; Other values are entered in AUD. Saved quotes and complete FX data survive failed updates.
 
@@ -102,4 +102,3 @@ A reproducible source snapshot needs source, resources, assets, tests, documents
 
 See readmefirst.txt for transfer instructions and AGENTS.md for contributor notes.
 Plain-text counterpart: README.txt.
-

@@ -51,7 +51,7 @@ public class HoldingListAdapter extends RecyclerView.Adapter<HoldingListAdapter.
             holder.tvTotal.setText(item.getTotal());
         } else {
             holder.tvName.setText(HoldingsDb.normalizeItemType(item.getItemType()));
-            holder.tvValue.setText(item.getTotal());
+            holder.tvValue.setText(resListActivity.formatCompactHoldingValue(item));
         }
 
         View.OnClickListener clickListener = v -> resListActivity.displayPopUp(

@@ -31,6 +31,26 @@ public class SpotPriceFavouriteTest {
     }
 
     @Test
+    public void backupSelectionPreservesOrderAndAcceptsAnExplicitlyEmptyList() {
+        List<SpotPriceFavourite> selected = new ArrayList<>();
+        selected.add(SpotPriceFavourite.crypto("Bitcoin", "bitcoin"));
+        selected.add(SpotPriceFavourite.stock("BHP"));
+        selected.add(SpotPriceFavourite.metal("Silver"));
+        List<SpotPriceFavourite> restored = SpotPriceFavourite.restoreBackupSelection(
+                SpotPriceFavourite.serialize(selected));
+        assertEquals(SpotPriceFavourite.serialize(selected), SpotPriceFavourite.serialize(restored));
+        assertTrue(SpotPriceFavourite.restoreBackupSelection("[]").isEmpty());
+    }
+
+    @Test
+    public void invalidBackupSelectionCannotReplaceLocalFavourites() {
+        assertNull(SpotPriceFavourite.restoreBackupSelection("{}"));
+        assertNull(SpotPriceFavourite.restoreBackupSelection("[{\"kind\":\"stock\",\"key\":\"bad ticker\"}]"));
+        assertNull(SpotPriceFavourite.restoreBackupSelection(
+                "[{\"kind\":\"stock\",\"key\":\"BHP\"},{\"kind\":\"stock\",\"key\":\"BHP\"}]"));
+    }
+
+    @Test
     public void damagedPreferencesRestoreSafeDefaults() {
         assertEquals("metal:Gold", SpotPriceFavourite.restore("broken-json").get(0).id());
     }

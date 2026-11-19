@@ -10,6 +10,7 @@ import java.util.TimeZone;
 final class PriceRetryPolicy {
     static final long MIN_INTERVAL_MS = 60_000L;
     static final long DEFAULT_RETRY_MS = 15 * 60_000L;
+    static final int DAILY_SUCCESS_LIMIT = 4;
 
     private PriceRetryPolicy() {
     }
@@ -19,19 +20,36 @@ final class PriceRetryPolicy {
     }
 
     static boolean canRequestDaily(boolean inProgress, long now, long lastAttempt, long retryAt, long lastSuccess) {
+        return canRequestDaily(inProgress, now, lastAttempt, retryAt, lastSuccess,
+                successfulUpdatesToday(now, lastSuccess, 0));
+    }
+
+    static boolean canRequestDaily(boolean inProgress, long now, long lastAttempt, long retryAt, long lastSuccess,
+            int savedSuccessCount) {
         if (!canRequest(inProgress, now, lastAttempt, retryAt)) {
             return false;
         }
+        return successfulUpdatesToday(now, lastSuccess, savedSuccessCount) < DAILY_SUCCESS_LIMIT;
+    }
+
+    static int successfulUpdatesToday(long now, long lastSuccess, int savedSuccessCount) {
         if (lastSuccess <= 0) {
-            return true;
+            return 0;
         }
-        Calendar currentDay = Calendar.getInstance();
-        currentDay.setTimeInMillis(now);
-        Calendar savedDay = Calendar.getInstance();
-        savedDay.setTimeInMillis(lastSuccess);
-        return currentDay.get(Calendar.ERA) != savedDay.get(Calendar.ERA)
-                || currentDay.get(Calendar.YEAR) != savedDay.get(Calendar.YEAR)
-                || currentDay.get(Calendar.DAY_OF_YEAR) != savedDay.get(Calendar.DAY_OF_YEAR);
+        if (!isSameCalendarDay(now, lastSuccess)) {
+            return 0;
+        }
+        return Math.max(savedSuccessCount, 1);
+    }
+
+    private static boolean isSameCalendarDay(long first, long second) {
+        Calendar firstDay = Calendar.getInstance();
+        firstDay.setTimeInMillis(first);
+        Calendar secondDay = Calendar.getInstance();
+        secondDay.setTimeInMillis(second);
+        return firstDay.get(Calendar.ERA) == secondDay.get(Calendar.ERA)
+                && firstDay.get(Calendar.YEAR) == secondDay.get(Calendar.YEAR)
+                && firstDay.get(Calendar.DAY_OF_YEAR) == secondDay.get(Calendar.DAY_OF_YEAR);
     }
 
     static long retryAt(String retryAfter, long now) {
